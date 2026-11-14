@@ -33,18 +33,10 @@ jobs:
       - name: Install Chromium
         run: npx playwright-core install --with-deps --no-shell chromium
 
-      - name: Serve index.html
-        run: |
-          python3 -m http.server 4173 --bind 127.0.0.1 &
-          for i in $(seq 1 50); do
-            curl -sf http://127.0.0.1:4173/index.html > /dev/null && break
-            sleep 0.2
-          done
-          curl -sfI http://127.0.0.1:4173/index.html | head -1
+      - name: Lint
+        run: npm run lint
 
-      - name: Run all suites
-        env:
-          VROOM_URL: http://127.0.0.1:4173/index.html
+      - name: Run all suites (builds preview/test.html and serves it)
         run: npm test
 
       - name: Upload screenshots

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0d0e12">
+<title>VROOM</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="docs/icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" sizes="180x180" href="docs/icons/apple-touch-icon.png">
+<style>
+/* Owner: ui. SCAFFOLD: the metal grunge tokens from docs/OVERHAUL.md "Look bible" and the bare scene
+   layers. The ui builder owns everything in this file; other modules add DOM only inside the mount
+   points (#garageHud, #raceHud) through VROOM.ui.button and friends, never by editing here. */
+:root {
+  --m-soot: #0d0e12; --m-iron: #1a1c21; --m-gun: #2c3039; --m-gun-2: #383d47; --m-steel: #6b727e; --m-steel-hi: #c7ccd5; --m-chrome: #f4f6fa;
+  --m-rust: #8a3b12; --m-rust-hi: #c2561c; --m-hazard: #f2b705; --m-hazard-ink: #111214; --m-molten: #ff5a1a; --m-molten-hi: #ffb02e;
+  --m-toxic: #8cff3a; --m-ink: #e6e9ef; --m-ink-soft: #9aa3b0; --m-go: #5fd34a; --m-go-deep: #2f7d25; --m-deny: #d8322a;
+  --metal: linear-gradient(#555b66, #363a43 55%, #24272e);
+  --steel: linear-gradient(#c7ccd5, #6b727e 55%, #4b515b);
+  --hazard: repeating-linear-gradient(-45deg, var(--m-hazard) 0 18px, var(--m-hazard-ink) 18px 36px);
+  --acc0: #fff2a8; --acc1: #ffb02e; --acc2: #ff5a1a; --acc3: #b3200f;
+  --r-plate: 10px; --shadow-plate: 0 6px 0 #050608, 0 10px 22px rgba(0, 0, 0, .45);
+  --font: "Arial Black", "Helvetica Neue", Impact, system-ui, sans-serif;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--m-soot); touch-action: none; }
+#stage { position: absolute; left: 50%; top: 50%; width: 1200px; height: 700px; transform-origin: 50% 50%; overflow: hidden;
+  background: var(--m-soot); font-family: var(--font); color: var(--m-ink); }
+#view { position: absolute; inset: 0; width: 1200px; height: 700px; display: block; touch-action: none; }
+.scene { position: absolute; inset: 0; display: none; pointer-events: none; }
+.scene.active { display: block; }
+.scene button, .scene .live { pointer-events: auto; }
+.plate { position: absolute; width: 96px; height: 96px; padding: 0; display: grid; place-items: center; cursor: pointer; color: var(--m-ink);
+  background: var(--metal); border: 4px solid var(--m-steel); border-radius: var(--r-plate); box-shadow: var(--shadow-plate); font: 900 40px var(--font); }
+.plate:active { transform: translateY(4px); box-shadow: 0 2px 0 #050608; }
+.plate.go { background: linear-gradient(#8ad57a, var(--m-go) 50%, var(--m-go-deep)); border-color: var(--m-steel-hi); }
+.plate svg { width: 60%; height: 60%; }
+#logo { position: absolute; left: 0; right: 0; top: 150px; text-align: center; font: italic 900 180px/1 var(--font); letter-spacing: -4px; rotate: -6deg;
+  color: transparent; background: linear-gradient(#f4f6fa, #a9b0bc 42%, #4b525e 50%, #c7ccd5 62%, #7d8593); -webkit-background-clip: text; background-clip: text;
+  -webkit-text-stroke: 3px #000; filter: drop-shadow(0 10px 0 #000) drop-shadow(0 0 24px var(--acc2)); pointer-events: none; }
+#rotate { position: fixed; inset: 0; display: none; place-items: center; background: var(--m-soot); z-index: 99; }
+@media (orientation: portrait) { #rotate { display: grid; } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="view" width="1200" height="700"></canvas>
+  <div id="splash" class="scene"><div id="logo" data-logo="1" role="img" aria-label="VROOM">VROOM</div></div>
+  <div id="home" class="scene"></div>
+  <div id="garage" class="scene"><div id="garageHud"></div></div>
+  <div id="map" class="scene"></div>
+  <div id="race" class="scene"><div id="raceHud"></div></div>
+  <div id="results" class="scene"></div>
+  <div id="boot" class="scene"></div>
+</div>
+<div id="rotate" aria-label="rotate"><svg viewBox="0 0 64 64" width="120" height="120"><rect x="20" y="8" width="24" height="44" rx="4" fill="none" stroke="#c7ccd5" stroke-width="4"/><path d="M8 40 A26 26 0 0 0 40 58" fill="none" stroke="#ff5a1a" stroke-width="4"/></svg></div>
+<script>/* @@THREE@@ */</script>
+<!-- @@MODULES@@ -->
+</body>
+</html>

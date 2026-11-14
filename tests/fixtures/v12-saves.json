@@ -1,0 +1,904 @@
+{
+ "note": "Generated from legacy/v12/index.html (v12.9.0): localStorage saves, VROOM1 compact codes and full codes, plus the frozen catalog lists. Never regenerate from v13.",
+ "cases": [
+  {
+   "label": "fresh",
+   "saved": {
+    "build": {
+     "body": "dump",
+     "wheels": "normal",
+     "color": "#fdd835",
+     "buddy": null,
+     "decal": "none",
+     "number": "",
+     "extras": {
+      "horn": false,
+      "beacon": false,
+      "flag": false,
+      "wings": false,
+      "booster": false,
+      "partyhat": false,
+      "spoiler": false,
+      "antenna": false,
+      "surf": false,
+      "bubbles": false,
+      "jetpack": false,
+      "trophyrack": false
+     }
+    },
+    "wallet": 0,
+    "owned": {
+     "body": [],
+     "wheels": [],
+     "color": [],
+     "extras": [],
+     "buddy": [],
+     "decal": []
+    },
+    "levels": {},
+    "current": 1,
+    "muddy": false,
+    "fuel": 8,
+    "tread": 8,
+    "damage": 0,
+    "upgrades": {
+     "engine": 0,
+     "armor": 0,
+     "magnet": 0,
+     "tank": 0,
+     "springs": 0
+    },
+    "quiet": false,
+    "badges": [],
+    "photos": [],
+    "lastGift": ""
+   },
+   "compact": "VROOM1.AwAAAQABIAAALAAJAAABIACAAKAAIAAAAAgAADAAAHgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACIAAA",
+   "full": "VROOM2.H4sIAAAAAAAAE02QwW7DIBBE_2V65ZCqqhTxK1EPi9nYbtYLxVA3ivzvFY4TcptZhmV4N7gyioe9wQV_hYUvU4TBMjDLDAsNaSKBQRckJFi8nb0_fnzCwBVfr2gRMfDckWx5ZRhomRzXOAz4Lyea6xtDSAp7JpnZwDF1odmzUP80y6j93JIhzLlu232klK8D5edgjmGUlwBpZlVq5yWd27binHDb_s05Und5-pxCHK6pjdbVYCERzrAHg7AovxA7fTVaVe-cqnx8vOodVpU7qtPXaiD8u928rQZdSYk1w74bTPf4g01hgT3Wbkx-U54m6nkrVGKfyPNGmLUf9T6mNNUiB4OJet3LZ9LLJuaY7owPq8FPGbnRdOR73mvHIeSw6fUfz-UFDCwCAAA",
+   "lists": {
+    "BODY_ORDER": [
+     "dump",
+     "digger",
+     "mixer",
+     "fire",
+     "monster",
+     "police",
+     "race",
+     "tractor",
+     "icecream",
+     "rocket",
+     "ufo",
+     "limo",
+     "dragon",
+     "train",
+     "royal",
+     "bulldozer",
+     "schoolbus",
+     "ambulance",
+     "submarine",
+     "pirate",
+     "dino",
+     "unicorn",
+     "hover"
+    ],
+    "WHEEL_ORDER": [
+     "normal",
+     "monster",
+     "racing",
+     "gold",
+     "flower",
+     "tank",
+     "glow",
+     "star",
+     "donut",
+     "cookie",
+     "lava",
+     "bubble",
+     "crystal",
+     "disco"
+    ],
+    "COLORS": [
+     "#e53935",
+     "#1e88e5",
+     "#fdd835",
+     "#43a047",
+     "#fb8c00",
+     "#ec407a",
+     "#8e24aa",
+     "#00acc1",
+     "#9ccc65",
+     "#f5f5f5",
+     "#37474f",
+     "rainbow",
+     "p:stripes",
+     "p:flames",
+     "p:dots",
+     "p:checker",
+     "p:camo",
+     "p:candy",
+     "p:galaxy",
+     "p:gold",
+     "p:leopard",
+     "p:bubblegum",
+     "p:bolt",
+     "p:rainbowshine"
+    ],
+    "DECAL_ORDER": [
+     "none",
+     "flame",
+     "star",
+     "heart",
+     "bolt",
+     "eyes",
+     "rainbow",
+     "dinofoot",
+     "flower"
+    ],
+    "BUDDY_ORDER": [
+     "pup",
+     "kitty",
+     "ducky",
+     "dino",
+     "penguin",
+     "monkey",
+     "fox",
+     "bunny",
+     "frog",
+     "robot"
+    ],
+    "EXTRAS": [
+     "horn",
+     "beacon",
+     "flag",
+     "wings",
+     "booster",
+     "partyhat",
+     "spoiler",
+     "antenna",
+     "surf",
+     "bubbles",
+     "jetpack",
+     "trophyrack"
+    ],
+    "BADGES": [
+     "jump",
+     "clean",
+     "s",
+     "world",
+     "buy",
+     "gag",
+     "champ",
+     "shine"
+    ],
+    "CODE_BODIES": [
+     "police",
+     "race",
+     "tractor",
+     "icecream",
+     "rocket",
+     "ufo",
+     "limo",
+     "dragon",
+     "train",
+     "royal",
+     "bulldozer",
+     "schoolbus",
+     "ambulance",
+     "submarine",
+     "pirate",
+     "dino",
+     "unicorn",
+     "hover"
+    ],
+    "CODE_WHEELS": [
+     "gold",
+     "flower",
+     "tank",
+     "glow",
+     "star",
+     "donut",
+     "cookie",
+     "lava",
+     "bubble",
+     "crystal",
+     "disco"
+    ],
+    "CODE_COLORS": [
+     "#8e24aa",
+     "#00acc1",
+     "#9ccc65",
+     "#f5f5f5",
+     "#37474f",
+     "rainbow",
+     "p:stripes",
+     "p:flames",
+     "p:dots",
+     "p:checker",
+     "p:camo",
+     "p:candy",
+     "p:galaxy",
+     "p:gold",
+     "p:leopard",
+     "p:bubblegum",
+     "p:bolt",
+     "p:rainbowshine"
+    ],
+    "CODE_EXTRAS": [
+     "wings",
+     "booster",
+     "partyhat",
+     "spoiler",
+     "antenna",
+     "surf",
+     "bubbles",
+     "jetpack",
+     "trophyrack"
+    ],
+    "CODE_DECALS": [
+     "flame",
+     "star",
+     "heart",
+     "bolt",
+     "eyes",
+     "rainbow",
+     "dinofoot",
+     "flower"
+    ],
+    "CODE_BADGES": [
+     "jump",
+     "clean",
+     "s",
+     "world",
+     "buy",
+     "gag"
+    ],
+    "PRICES": {
+     "body": {
+      "police": 25,
+      "race": 40,
+      "tractor": 60,
+      "icecream": 80,
+      "rocket": 120,
+      "ufo": 200,
+      "limo": 250,
+      "dragon": 300,
+      "train": 350,
+      "royal": 400,
+      "bulldozer": 75,
+      "schoolbus": 90,
+      "ambulance": 110,
+      "submarine": 150,
+      "pirate": 180,
+      "dino": 220,
+      "unicorn": 280,
+      "hover": 1000
+     },
+     "wheels": {
+      "gold": 30,
+      "flower": 50,
+      "tank": 70,
+      "glow": 90,
+      "star": 120,
+      "donut": 50,
+      "cookie": 50,
+      "lava": 80,
+      "bubble": 85,
+      "crystal": 120,
+      "disco": 220
+     },
+     "color": {
+      "#8e24aa": 10,
+      "#00acc1": 10,
+      "#9ccc65": 15,
+      "#f5f5f5": 15,
+      "#37474f": 20,
+      "rainbow": 60,
+      "p:stripes": 40,
+      "p:flames": 70,
+      "p:dots": 45,
+      "p:checker": 50,
+      "p:camo": 55,
+      "p:candy": 45,
+      "p:galaxy": 110,
+      "p:gold": 120,
+      "p:leopard": 60,
+      "p:bubblegum": 50,
+      "p:bolt": 65,
+      "p:rainbowshine": 0
+     },
+     "decal": {
+      "flame": 30,
+      "star": 20,
+      "heart": 20,
+      "bolt": 40,
+      "eyes": 50,
+      "rainbow": 35,
+      "dinofoot": 40,
+      "flower": 45
+     },
+     "extras": {
+      "wings": 40,
+      "booster": 60,
+      "partyhat": 25,
+      "spoiler": 30,
+      "antenna": 20,
+      "surf": 40,
+      "bubbles": 45,
+      "jetpack": 180,
+      "trophyrack": 260
+     }
+    }
+   }
+  },
+  {
+   "label": "played",
+   "saved": {
+    "build": {
+     "body": "hover",
+     "wheels": "disco",
+     "color": "p:galaxy",
+     "buddy": "robot",
+     "decal": "flower",
+     "number": "42",
+     "extras": {
+      "horn": true,
+      "beacon": false,
+      "flag": false,
+      "wings": true,
+      "booster": false,
+      "partyhat": false,
+      "spoiler": false,
+      "antenna": false,
+      "surf": false,
+      "bubbles": false,
+      "jetpack": true,
+      "trophyrack": false
+     }
+    },
+    "wallet": 1234,
+    "owned": {
+     "body": [
+      "police",
+      "hover",
+      "dragon"
+     ],
+     "wheels": [
+      "disco",
+      "gold"
+     ],
+     "color": [
+      "p:galaxy",
+      "#8e24aa",
+      "rainbow"
+     ],
+     "extras": [
+      "wings",
+      "jetpack"
+     ],
+     "buddy": [
+      "dino",
+      "robot"
+     ],
+     "decal": [
+      "flame",
+      "flower"
+     ]
+    },
+    "levels": {
+     "1": {
+      "best": 6,
+      "rating": 2,
+      "bestTime": 20.333333333333332,
+      "tier": "A"
+     },
+     "2": {
+      "best": 7,
+      "rating": 3,
+      "bestTime": 20.666666666666668,
+      "tier": "B"
+     },
+     "3": {
+      "best": 8,
+      "rating": 1,
+      "bestTime": 21,
+      "tier": "C"
+     },
+     "4": {
+      "best": 9,
+      "rating": 2,
+      "bestTime": 21.333333333333332,
+      "tier": "S"
+     },
+     "5": {
+      "best": 10,
+      "rating": 3,
+      "bestTime": 21.666666666666668,
+      "tier": "A"
+     },
+     "6": {
+      "best": 11,
+      "rating": 1,
+      "bestTime": 22,
+      "tier": "B"
+     },
+     "7": {
+      "best": 5,
+      "rating": 2,
+      "bestTime": 22.333333333333332,
+      "tier": "C"
+     },
+     "8": {
+      "best": 6,
+      "rating": 3,
+      "bestTime": 22.666666666666668,
+      "tier": "S"
+     },
+     "9": {
+      "best": 7,
+      "rating": 1,
+      "bestTime": 23,
+      "tier": "A"
+     },
+     "10": {
+      "best": 8,
+      "rating": 2,
+      "bestTime": 23.333333333333332,
+      "tier": "B"
+     },
+     "11": {
+      "best": 9,
+      "rating": 3,
+      "bestTime": 23.666666666666668,
+      "tier": "C"
+     },
+     "12": {
+      "best": 10,
+      "rating": 1,
+      "bestTime": 24,
+      "tier": "S"
+     },
+     "13": {
+      "best": 11,
+      "rating": 2,
+      "bestTime": 24.333333333333332,
+      "tier": "A"
+     },
+     "14": {
+      "best": 5,
+      "rating": 3,
+      "bestTime": 24.666666666666668,
+      "tier": "B"
+     },
+     "15": {
+      "best": 6,
+      "rating": 1,
+      "bestTime": 25,
+      "tier": "C"
+     },
+     "16": {
+      "best": 7,
+      "rating": 2,
+      "bestTime": 25.333333333333332,
+      "tier": "S"
+     },
+     "17": {
+      "best": 8,
+      "rating": 3,
+      "bestTime": 25.666666666666668,
+      "tier": "A"
+     },
+     "18": {
+      "best": 9,
+      "rating": 1,
+      "bestTime": 26,
+      "tier": "B"
+     },
+     "19": {
+      "best": 10,
+      "rating": 2,
+      "bestTime": 26.333333333333332,
+      "tier": "C"
+     },
+     "20": {
+      "best": 11,
+      "rating": 3,
+      "bestTime": 26.666666666666668,
+      "tier": "S"
+     },
+     "21": {
+      "best": 5,
+      "rating": 1,
+      "bestTime": 27,
+      "tier": "A"
+     },
+     "22": {
+      "best": 6,
+      "rating": 2,
+      "bestTime": 27.333333333333332,
+      "tier": "B"
+     },
+     "23": {
+      "best": 7,
+      "rating": 3,
+      "bestTime": 27.666666666666668,
+      "tier": "C"
+     },
+     "24": {
+      "best": 8,
+      "rating": 1,
+      "bestTime": 28,
+      "tier": "S"
+     },
+     "25": {
+      "best": 9,
+      "rating": 2,
+      "bestTime": 28.333333333333336,
+      "tier": "A"
+     },
+     "26": {
+      "best": 10,
+      "rating": 3,
+      "bestTime": 28.666666666666664,
+      "tier": "B"
+     },
+     "27": {
+      "best": 11,
+      "rating": 1,
+      "bestTime": 29,
+      "tier": "C"
+     },
+     "28": {
+      "best": 5,
+      "rating": 2,
+      "bestTime": 29.333333333333336,
+      "tier": "S"
+     },
+     "29": {
+      "best": 6,
+      "rating": 3,
+      "bestTime": 29.666666666666664,
+      "tier": "A"
+     },
+     "30": {
+      "best": 7,
+      "rating": 1,
+      "bestTime": 30,
+      "tier": "B"
+     },
+     "31": {
+      "best": 8,
+      "rating": 2,
+      "bestTime": 30.333333333333336,
+      "tier": "C"
+     },
+     "32": {
+      "best": 9,
+      "rating": 3,
+      "bestTime": 30.666666666666664,
+      "tier": "S"
+     },
+     "33": {
+      "best": 10,
+      "rating": 1,
+      "bestTime": 31,
+      "tier": "A"
+     },
+     "34": {
+      "best": 11,
+      "rating": 2,
+      "bestTime": 31.333333333333336,
+      "tier": "B"
+     },
+     "35": {
+      "best": 5,
+      "rating": 3,
+      "bestTime": 31.666666666666664,
+      "tier": "C"
+     },
+     "36": {
+      "best": 6,
+      "rating": 1,
+      "bestTime": 32,
+      "tier": "S"
+     }
+    },
+    "current": 37,
+    "muddy": true,
+    "fuel": 5,
+    "tread": 3,
+    "damage": 4,
+    "upgrades": {
+     "engine": 2,
+     "armor": 1,
+     "magnet": 3,
+     "tank": 1,
+     "springs": 2
+    },
+    "quiet": true,
+    "badges": [
+     "jump",
+     "shine",
+     "champ"
+    ],
+    "photos": [],
+    "lastGift": ""
+   },
+   "compact": "VROOM1.AwTSJU5xKBAELgCJQgQBMCCIEKEEIgxYNEggKDJAgHitS-WPacetS-WPacetS-WPaccAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABTVsA",
+   "full": "VROOM2.H4sIAAAAAAAAE41WwZKjIBT8l7dXaiuAUeNtdz9h95bKAZWoMwgu4mRSU_n3LUhWA6XG3BRou1-_NO8L8qERJWRfkKvyChnU6oNrQHCpORc9ZFA2faEAQaGE0pBBl1VMsM8rIMiH0p3RKlcGEJS8YAIyOAt1cSByaHNuD0UEEPBPo1lvv1UrLSEzeuAIcs4KJSE7M9FzBGfBqvHh0siqHzcq1RuL9ljsmDbXmpnxRd-pRjxtYNJwKdm0Pujz-JAPeS54Pz6_cdOx4v3_x4xWXX3V7o3bcbshuDAhuIEMExohUBfJnyp3hE6JpuCAxhqWmlVKwmmq5nEsZ6VEaVceZT0-1_VbyknEGCDQrJG5utiN_6t3fFRlonwanbDw0qLfHTmNlhxtXVvL7eHN6YZA8A9H6guwk8F7A1lsP2oaWUFGkHv3p2k5ZGT3nXo_gsA0ztwfcENAJohkgqABROz90hHip4WgE0Q6QWAPAo9Hftkj0XTksEQcLxL_bSH2EwTeLTHHi8yd-PgJAy9RJ77aZDqzX6JOFqk79emsbTSAWGLu1B9mbfOJU18s3s365DOni8ydeIxnjaMBxhJ1px6Teed88pGvF9N5q3z20Xqv42jWOxpgrDY73s-a55PfB4rjWbd87vv1dsfJrHs0wFhtd5zOuudzjwO9h3m3fPLxesOT3bx7NABZbXmCZ93z2SdBupENCZms9zyhGyIyWe95Em3IyFDvfkNIpgH3ONAfb0nJNCAfBQVItsTkIVCcbsjJwyL7ewUOG4LysEjeVYDuXicl3QUXGn6dlDS8V2NfPyWvk5KGF2sQepRuSEqKA8HRhqSk4eUa_Ovp_nVS0vByjYIKxK-T0k-5G4Ji0JpLAxlNELT36eg-2Z0HLhwZozkrHZeStazikEUIhq7SrORuKuKyaiR3iplu7ZSGEbSsknYGtJcik-_uXd_p-6BKbgj-Do1df8ysrKy4G9rehrYDBH1tIREUNWs7O6B1tTLK7jjd_gElhmy9jQsAAA",
+   "lists": {
+    "BODY_ORDER": [
+     "dump",
+     "digger",
+     "mixer",
+     "fire",
+     "monster",
+     "police",
+     "race",
+     "tractor",
+     "icecream",
+     "rocket",
+     "ufo",
+     "limo",
+     "dragon",
+     "train",
+     "royal",
+     "bulldozer",
+     "schoolbus",
+     "ambulance",
+     "submarine",
+     "pirate",
+     "dino",
+     "unicorn",
+     "hover"
+    ],
+    "WHEEL_ORDER": [
+     "normal",
+     "monster",
+     "racing",
+     "gold",
+     "flower",
+     "tank",
+     "glow",
+     "star",
+     "donut",
+     "cookie",
+     "lava",
+     "bubble",
+     "crystal",
+     "disco"
+    ],
+    "COLORS": [
+     "#e53935",
+     "#1e88e5",
+     "#fdd835",
+     "#43a047",
+     "#fb8c00",
+     "#ec407a",
+     "#8e24aa",
+     "#00acc1",
+     "#9ccc65",
+     "#f5f5f5",
+     "#37474f",
+     "rainbow",
+     "p:stripes",
+     "p:flames",
+     "p:dots",
+     "p:checker",
+     "p:camo",
+     "p:candy",
+     "p:galaxy",
+     "p:gold",
+     "p:leopard",
+     "p:bubblegum",
+     "p:bolt",
+     "p:rainbowshine"
+    ],
+    "DECAL_ORDER": [
+     "none",
+     "flame",
+     "star",
+     "heart",
+     "bolt",
+     "eyes",
+     "rainbow",
+     "dinofoot",
+     "flower"
+    ],
+    "BUDDY_ORDER": [
+     "pup",
+     "kitty",
+     "ducky",
+     "dino",
+     "penguin",
+     "monkey",
+     "fox",
+     "bunny",
+     "frog",
+     "robot"
+    ],
+    "EXTRAS": [
+     "horn",
+     "beacon",
+     "flag",
+     "wings",
+     "booster",
+     "partyhat",
+     "spoiler",
+     "antenna",
+     "surf",
+     "bubbles",
+     "jetpack",
+     "trophyrack"
+    ],
+    "BADGES": [
+     "jump",
+     "clean",
+     "s",
+     "world",
+     "buy",
+     "gag",
+     "champ",
+     "shine"
+    ],
+    "CODE_BODIES": [
+     "police",
+     "race",
+     "tractor",
+     "icecream",
+     "rocket",
+     "ufo",
+     "limo",
+     "dragon",
+     "train",
+     "royal",
+     "bulldozer",
+     "schoolbus",
+     "ambulance",
+     "submarine",
+     "pirate",
+     "dino",
+     "unicorn",
+     "hover"
+    ],
+    "CODE_WHEELS": [
+     "gold",
+     "flower",
+     "tank",
+     "glow",
+     "star",
+     "donut",
+     "cookie",
+     "lava",
+     "bubble",
+     "crystal",
+     "disco"
+    ],
+    "CODE_COLORS": [
+     "#8e24aa",
+     "#00acc1",
+     "#9ccc65",
+     "#f5f5f5",
+     "#37474f",
+     "rainbow",
+     "p:stripes",
+     "p:flames",
+     "p:dots",
+     "p:checker",
+     "p:camo",
+     "p:candy",
+     "p:galaxy",
+     "p:gold",
+     "p:leopard",
+     "p:bubblegum",
+     "p:bolt",
+     "p:rainbowshine"
+    ],
+    "CODE_EXTRAS": [
+     "wings",
+     "booster",
+     "partyhat",
+     "spoiler",
+     "antenna",
+     "surf",
+     "bubbles",
+     "jetpack",
+     "trophyrack"
+    ],
+    "CODE_DECALS": [
+     "flame",
+     "star",
+     "heart",
+     "bolt",
+     "eyes",
+     "rainbow",
+     "dinofoot",
+     "flower"
+    ],
+    "CODE_BADGES": [
+     "jump",
+     "clean",
+     "s",
+     "world",
+     "buy",
+     "gag"
+    ],
+    "PRICES": {
+     "body": {
+      "police": 25,
+      "race": 40,
+      "tractor": 60,
+      "icecream": 80,
+      "rocket": 120,
+      "ufo": 200,
+      "limo": 250,
+      "dragon": 300,
+      "train": 350,
+      "royal": 400,
+      "bulldozer": 75,
+      "schoolbus": 90,
+      "ambulance": 110,
+      "submarine": 150,
+      "pirate": 180,
+      "dino": 220,
+      "unicorn": 280,
+      "hover": 1000
+     },
+     "wheels": {
+      "gold": 30,
+      "flower": 50,
+      "tank": 70,
+      "glow": 90,
+      "star": 120,
+      "donut": 50,
+      "cookie": 50,
+      "lava": 80,
+      "bubble": 85,
+      "crystal": 120,
+      "disco": 220
+     },
+     "color": {
+      "#8e24aa": 10,
+      "#00acc1": 10,
+      "#9ccc65": 15,
+      "#f5f5f5": 15,
+      "#37474f": 20,
+      "rainbow": 60,
+      "p:stripes": 40,
+      "p:flames": 70,
+      "p:dots": 45,
+      "p:checker": 50,
+      "p:camo": 55,
+      "p:candy": 45,
+      "p:galaxy": 110,
+      "p:gold": 120,
+      "p:leopard": 60,
+      "p:bubblegum": 50,
+      "p:bolt": 65,
+      "p:rainbowshine": 0
+     },
+     "decal": {
+      "flame": 30,
+      "star": 20,
+      "heart": 20,
+      "bolt": 40,
+      "eyes": 50,
+      "rainbow": 35,
+      "dinofoot": 40,
+      "flower": 45
+     },
+     "extras": {
+      "wings": 40,
+      "booster": 60,
+      "partyhat": 25,
+      "spoiler": 30,
+      "antenna": 20,
+      "surf": 40,
+      "bubbles": 45,
+      "jetpack": 180,
+      "trophyrack": 260
+     }
+    }
+   }
+  }
+ ]
+}

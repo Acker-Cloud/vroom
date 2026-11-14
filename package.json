@@ -1,8 +1,8 @@
 {
   "name": "vroom",
-  "version": "12.9.0",
+  "version": "13.0.0",
   "private": true,
-  "description": "A build-a-car driving game for a 3 to 5 year old. One HTML file, zero dependencies, works offline.",
+  "description": "VROOM: a late-90s console style metal grunge 3D racer. Monster machines, twelve loud worlds, 120 tracks, real vehicle physics. One HTML file, no reading, works offline.",
   "homepage": "https://zacker3310.github.io/vroom/",
   "license": "MIT",
   "repository": {
@@ -13,14 +13,17 @@
     "node": ">=20"
   },
   "scripts": {
+    "build": "node scripts/build.cjs",
     "test": "node tests/run-all.cjs",
-    "test:verbose": "node tests/run-all.cjs --verbose",
+    "lint": "node tests/lint.cjs",
     "serve": "python3 -m http.server 4173",
-    "icons": "node scripts/render-icons.cjs",
-    "shots": "node scripts/doc-shots.cjs"
+    "shot": "node scripts/shot.cjs",
+    "icons": "node scripts/render-icons.cjs"
   },
   "devDependencies": {
+    "eslint": "10.11.0",
     "jsqr": "1.4.0",
-    "playwright-core": "1.63.0"
+    "playwright-core": "1.63.0",
+    "three": "0.170.0"
   }
 }

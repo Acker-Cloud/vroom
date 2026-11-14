@@ -1,9 +1,10 @@
-# dependencies (test-only; the game itself has none)
+# dependencies (build and test only; the shipped index.html has none)
 node_modules
 tests/node_modules
 
-# test output
+# test output and per-builder preview builds
 tests/shots/
+preview/
 
 # tooling + OS noise
 .claude/

@@ -1,37 +1,42 @@
 # Vroom: notes for Claude Code
 
-Vroom is a one-file kids' driving game: `index.html` holds all CSS, markup and JS (a 30-section
-table of contents sits at the top of the script). No build, no dependencies, no network. Read
-`CONTRIBUTING.md` for the non-negotiable rules and the content-pack anchors, and
-`docs/ARCHITECTURE.md` for how the pieces fit. `SPEC.md` is the design spec; `TASKS.md` the log.
+VROOM 13 is a late-90s console style metal grunge 3D racer (three.js r170) for players around 10 to 12.
+The shipped `index.html` is **generated** by `npm run build` from `src/` (`src/shell.html` plus the
+modules in `scripts/build.cjs` ORDER, with three.js inlined from `node_modules`). Never hand-edit or
+Read `index.html` (the three.js line is ~690 KB). `docs/OVERHAUL.md` is the design and module map,
+`src/contracts.js` the binding interfaces. v12 (the 2D toddler game) lives in `legacy/v12/` for
+reference; `SPEC.md`, `docs/ARCHITECTURE.md` and `CONTRIBUTING.md` still describe v12.
 
-## Rules that the suite and the user both enforce
+## Rules that the suites and the user enforce
 
-- Zero on-screen words: numerals and symbols only, pictograms for everything. `aria-label`s are fine.
-- No fail states. Stars only go up. Obstacles stop and ding, never end a run. Dry fuel crawls, it never strands.
-- Every tap target is at least 64 px rendered at 1024x768 (so 76 stage px or more).
-- Toybox look: the `--v-*` tokens in `:root`, flat `0 6px 0` shadows, big radii, `var(--v-font)`. Navy is game art, never chrome.
-- Save data is forever: `CODE_*`, `BODY_ORDER`, `WHEEL_ORDER`, `COLORS`, `DECAL_ORDER`, `BUDDY_ORDER`, `BADGES` are append-only. New save fields go on the end of the v3 tail with a `pos + n <= bytes.length * 8` guard, and in `loadState()` with a default for older saves.
+- Zero on-screen words: numerals, symbols, pictograms. `aria-label`s are fine. The VROOM logo (`data-logo`) is the one word.
+- No fail states. Crashes and monsters knock, spin and cost time, never end a run. Stars only go up.
+- Every tap target is at least 64 px rendered at 1024x768 (75 stage px; use 88+).
+- Metal grunge look: the `--m-*` tokens in `src/shell.html`, gunmetal plates, chrome, rust, hazard stripes. No toybox chrome.
+- The sim region (contracts, dmath, catalog, levels, sim, monsters.sim) is DOM-free, THREE-free and deterministic:
+  no Math.random, no clocks, no Math.sin/cos/atan2/exp/pow/hypot or `**` (use `VROOM.dmath`). It ports to Swift bit-exact.
+- Save data is forever: `contracts.LEGACY` lists are frozen; new ids append through `catalog.NEW_*`; new code fields go
+  on the end of the v3 tail with a `pos + n <= bytes.length * 8` guard; new JSON fields get a default in `save.js` `apply()`.
 - Honour `prefers-reduced-motion` for anything decorative.
-- Bump `APP_VERSION` on every user-visible change; the hosted update gate keys off it.
+- Bump `APP_VERSION` (src/contracts.js) and package.json together on every user-visible change.
+- IP: original designs only. Nothing from Crash Bandicoot or any other existing game or brand.
 - No em dashes in anything you write (code comments, docs, commit messages, replies).
 
 ## Working here
 
 ```bash
-python3 -m http.server 4173              # serve; the page must be served, not opened from disk
 npm ci && npx playwright-core install chromium
-npm test                                 # 23 suites; serves on its own free port, appends ?garage
-node tests/lint.cjs                      # ESLint over the inline script, must be 0 findings
-npm run shots                            # regenerate docs/*.png (needs the server + a Chromium)
+npm run build                            # src/ + three.js -> index.html
+npm run build -- --out preview/x.html [--mine <owner>]   # a private preview build
+npm test                                 # every suite; builds and serves preview/test.html itself
+npm run lint                             # ESLint over the assembled modules, must be 0 findings
+node tests/sim.cjs                       # the sim region in Node
+python3 -m http.server 4173              # then /index.html?scene=race&level=12&bot=1
 ```
 
-- The page boots into a title scene. Append `?garage` to land in the garage (the runner does this); the suites' default `VROOM_URL` already carries it.
-- `CHROMIUM=/path/to/chrome` points the suites at a browser. In the cloud session the shared one lives at `/opt/pw-browsers/chromium-1194/chrome-linux/chrome` and `node_modules` for the tests at `<scratchpad>/t/node_modules` (set `NODE_PATH`).
-- Port 4173 can be held by a stale server from a worktree. If a manual screenshot shows the wrong version, check `APP_VERSION` in the served page before debugging code.
-- The fairness bots (`tests/fairness-check.cjs`) drive all 120 levels. If level content fails them, fix the content, never the thresholds.
-- Every feature gets a check in the suite that owns the area (see `tests/README.md`); keep the counts in that README and in the top-level README current.
-- Tests run under load on the shared box can flake on the two timing checks (level-80 frame time, ghost replay timing); rerun those suites alone before treating a failure as real.
+- URL switches: `?scene=<id>`, `?level=N`, `?bot=1`, `?nosplash`, `?garage`, `?quality=low`.
+- `CHROMIUM=/path/to/chrome` points the suites at a browser.
+- Each module has one owner (docs/OVERHAUL.md section 10); suites are `tests/<area>-check.cjs`, found by name.
 
 ## Git
 
@@ -39,4 +44,4 @@ npm run shots                            # regenerate docs/*.png (needs the serv
 - End every commit message with the two attribution lines the session provides.
 - Agent worktree branches are merged into `main` with `git merge --squash` so each feature lands as one verified, Claude-authored commit.
 - Push `main`, then mirror it with `git push origin main:feat/chase-cam`. Never open a pull request unless asked.
-- Run the full battery and lint before every push. A pipe such as `node tests/run-all.cjs | tail` hides the exit code; capture to a log and check `exit`.
+- Run `npm run build`, the full battery and lint before every push; commit the rebuilt `index.html`. A pipe such as `node tests/run-all.cjs | tail` hides the exit code; capture to a log and check `exit`.
