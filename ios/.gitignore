@@ -1,0 +1,6 @@
+Vroom.xcodeproj/
+Vroom/Info.plist
+build/
+build-device/
+build-device.log
+xcuserdata/

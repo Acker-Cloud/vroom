@@ -1,0 +1,56 @@
+# XcodeGen spec for the Vroom iOS shell: `cd ios && xcodegen` writes Vroom.xcodeproj (not committed).
+# The app is a full-screen WKWebView around the repo's one-file game (../index.html), copied into
+# the bundle at build time by sync-web.sh, so a rebuild always ships the current web build.
+name: Vroom
+options:
+  bundleIdPrefix: cloud.acker
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: "E97LU2X2VL"
+    DEAD_CODE_STRIPPING: YES
+    # sync-web.sh reads ../index.html, outside the project sources
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+targets:
+  Vroom:
+    type: application
+    platform: iOS
+    sources:
+      - path: Vroom
+    preBuildScripts:
+      - name: Sync web game
+        script: "\"${SRCROOT}/sync-web.sh\""
+        inputFiles:
+          - "$(SRCROOT)/../index.html"
+          - "$(SRCROOT)/sync-web.sh"
+        outputFiles:
+          - "$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/web/index.html"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cloud.acker.vroom
+        TARGETED_DEVICE_FAMILY: "1,2"
+        # Keep generation ON so Xcode injects CFBundleIdentifier/Executable/etc.
+        GENERATE_INFOPLIST_FILE: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_KEY_CFBundleDisplayName: Vroom
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.kids-games
+        INFOPLIST_KEY_UIRequiresFullScreen: YES
+        INFOPLIST_KEY_UIStatusBarHidden: YES
+        INFOPLIST_KEY_UIViewControllerBasedStatusBarAppearance: NO
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+    info:
+      path: Vroom/Info.plist
+      properties:
+        CADisableMinimumFrameDurationOnPhone: true
+        UILaunchScreen:
+          UIColorName: LaunchBg
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
