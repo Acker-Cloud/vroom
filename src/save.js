@@ -62,6 +62,7 @@ const MAX_DAMAGE = 9, REPAIR_RATE = 2;
 const FUEL_MAX = 8, TREAD_MAX = 8;   /* v12 upkeep: retired from play in v13 but kept and round-tripped in saves */
 const TIER_RANK = { S: 3, A: 2, B: 1, C: 0 };
 const NUMBER_RE = /^\d{1,2}$/;
+const clampInt = (v, a, b) => (Number.isFinite(v) ? Math.min(b, Math.max(a, Math.floor(v))) : a);
 
 /* ---- the state ---- */
 const blankExtras = () => Object.fromEntries(EXTRA_ORDER.map(k => [k, false]));
@@ -107,10 +108,14 @@ function ghostValid(g) {
   return !!g && typeof g === 'object' && Number.isFinite(g.t) && g.t > 0 && g.t < 600 && Array.isArray(g.p)
     && g.p.length >= 6 && g.p.length % 3 === 0 && g.p.length <= 9000 && g.p.every(n => Number.isFinite(n));
 }
-/* v13 replays: { t, ticks, rle } where rle is the packed-input run-length string from encodeReplay */
+/* v13 replays: { t, ticks, rle, b } where rle is the packed-input run-length string from encodeReplay and
+   b the build key it was driven with (a ghost only replays in the same machine). Touch steering changes
+   almost every tick, so a 2 minute run can need about 100k characters; REPLAY_MAX leaves room for 5 min. */
+const REPLAY_MAX = 250000;
 function replayValid(r) {
-  return !!r && typeof r === 'object' && Number.isFinite(r.t) && r.t > 0 && r.t < 900 && Number.isInteger(r.ticks) && typeof r.rle === 'string' && r.rle.length < 60000;
+  return !!r && typeof r === 'object' && Number.isFinite(r.t) && r.t > 0 && r.t < 900 && Number.isInteger(r.ticks) && r.ticks > 0 && typeof r.rle === 'string' && r.rle.length < REPLAY_MAX;
 }
+const replayCopy = r => (typeof r.b === 'string' ? { t: r.t, ticks: r.ticks, rle: r.rle, b: r.b } : { t: r.t, ticks: r.ticks, rle: r.rle });
 
 function load() {
   let saved = null;
@@ -143,7 +148,7 @@ function apply(saved) {
       if (TIER_RANK[lv.tier] !== undefined) out.tier = lv.tier;
       if (ghostValid(lv.ghost)) out.ghost = { t: lv.ghost.t, p: lv.ghost.p.slice() };
       if (Number.isFinite(lv.t13) && lv.t13 > 0) out.t13 = lv.t13;                      /* 13.0: best v13 time */
-      if (replayValid(lv.replay)) out.replay = { t: lv.replay.t, ticks: lv.replay.ticks, rle: lv.replay.rle };
+      if (replayValid(lv.replay)) out.replay = replayCopy(lv.replay);
     }
   }
   if (Number.isFinite(saved.current) && saved.current >= 1 && saved.current <= C.MAX_LEVEL) progress.current = Math.floor(saved.current);
@@ -179,7 +184,18 @@ function apply(saved) {
   for (const k in state.extras) if (state.extras[k] && !owns('extras', k)) state.extras[k] = false;
 }
 function snapshot() { return { ...extra, build: state, ...progress }; }
-function save() { lsSet(saveKey(), JSON.stringify(snapshot())); }
+/* localStorage holds about 5 MB per origin. Replays are the only big thing in a save, so when a write is
+   refused the longest replays go first (the ghosts are a keepsake; stars, times and parts never are). */
+function save() {
+  if (!store) return;
+  for (let tries = 0; tries < 200; tries++) {
+    try { store.setItem(saveKey(), JSON.stringify(snapshot())); return; } catch (e) { /* quota: shed a replay and retry */ }
+    let worst = null;
+    for (const n in progress.levels) { const r = progress.levels[n].replay; if (r && (!worst || r.rle.length > progress.levels[worst].replay.rle.length)) worst = n; }
+    if (!worst) return;
+    delete progress.levels[worst].replay;
+  }
+}
 
 /* ---- the economy ---- */
 function buy(kind, id) {
@@ -215,10 +231,11 @@ function recordRun(n, result, replay) {
   const newBest = !lv.t13 || result.time < lv.t13;
   lv.best = Math.max(lv.best, result.stars | 0);
   lv.rating = Math.max(lv.rating, Math.min(3, Math.max(1, result.rating | 0)));
-  if (newBest) { lv.t13 = result.time; if (replay && replayValid(replay)) lv.replay = replay; }
+  if (newBest) { lv.t13 = result.time; if (replay && replayValid(replay)) lv.replay = replayCopy(replay); }
   const newTier = TIER_RANK[result.tier] !== undefined && (lv.tier === undefined || TIER_RANK[result.tier] > TIER_RANK[lv.tier]);
   if (newTier) lv.tier = result.tier;
-  let payout = (result.stars | 0) + 3 + (result.clean ? 2 : 0);
+  /* bonus: boss stars from monsterAI.bonus (3 smashed, 2 outrun untouched, 1 outrun) */
+  let payout = (result.stars | 0) + 3 + (result.clean ? 2 : 0) + clampInt(result.bonus, 0, 3);
   if (C.isFinale(n) && first) payout += 25;
   if (C.isFinale(n) && !progress.bosses.includes(C.worldOf(n))) { progress.bosses.push(C.worldOf(n)); progress.bosses.sort((a, b) => a - b); badge('boss'); }
   if (n === C.PARADE_LEVEL) { payout += first ? 100 : 10; badge('champ'); }
@@ -230,6 +247,8 @@ function recordRun(n, result, replay) {
   if (result.tier === 'S') badge('s');
   if (C.isFinale(n) && first) badge('world');
   if (result.stars > 0 && result.stars === result.starsTotal) badge('sweep');
+  if (result.maxAir >= 3) badge('air');
+  if (result.maxDrift >= 3) badge('drift');
   save();
   return { payout, first, newBest, newTier, badges: progress.badges.slice(badgesBefore) };
 }

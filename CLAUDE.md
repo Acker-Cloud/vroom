@@ -1,47 +1,48 @@
-# Vroom: notes for Claude Code
+# VROOM: notes for Claude Code
 
 VROOM 13 is a late-90s console style metal grunge 3D racer (three.js r170) for players around 10 to 12.
-The shipped `index.html` is **generated** by `npm run build` from `src/` (`src/shell.html` plus the
-modules in `scripts/build.cjs` ORDER, with three.js inlined from `node_modules`). Never hand-edit or
-Read `index.html` (the three.js line is ~690 KB). `docs/OVERHAUL.md` is the design and module map,
-`src/contracts.js` the binding interfaces. v12 (the 2D toddler game) lives in `legacy/v12/` for
-reference; `SPEC.md`, `docs/ARCHITECTURE.md` and `CONTRIBUTING.md` still describe v12.
+Sources live in `src/`; `npm run build` assembles the one shipped `index.html` (three.js inlined, every
+module in its own `<script>`). Never hand-edit `index.html`. Read `docs/OVERHAUL.md` (the design and the
+module map), `src/contracts.js` (the binding interfaces and frozen ids), `CONTRIBUTING.md` (the rules)
+and `docs/ARCHITECTURE.md` (how the pieces fit). `SPEC.md` is the design spec, `TASKS.md` the log.
+v12 (the 2D toybox) lives in `legacy/v12/` for reference only.
 
-## Rules that the suites and the user enforce
+## Rules that the suite and the user both enforce
 
-- Zero on-screen words: numerals, symbols, pictograms. `aria-label`s are fine. The VROOM logo (`data-logo`) is the one word.
-- No fail states. Crashes and monsters knock, spin and cost time, never end a run. Stars only go up.
-- Every tap target is at least 64 px rendered at 1024x768 (75 stage px; use 88+).
-- Metal grunge look: the `--m-*` tokens in `src/shell.html`, gunmetal plates, chrome, rust, hazard stripes. No toybox chrome.
-- The sim region (contracts, dmath, catalog, levels, sim, monsters.sim) is DOM-free, THREE-free and deterministic:
-  no Math.random, no clocks, no Math.sin/cos/atan2/exp/pow/hypot or `**` (use `VROOM.dmath`). It ports to Swift bit-exact.
-- Save data is forever: `contracts.LEGACY` lists are frozen; new ids append through `catalog.NEW_*`; new code fields go
-  on the end of the v3 tail with a `pos + n <= bytes.length * 8` guard; new JSON fields get a default in `save.js` `apply()`.
+- Zero on-screen words: numerals and symbols only, pictograms for everything. The VROOM logo (`data-logo`) is the one word. `aria-label`s are fine.
+- No fail states. Crashes, monsters, gaps and walls knock you back and cost time, never end a run; the crane respawns the car. Stars only go up.
+- Every tap target is at least 64 px rendered at 1024x768 (75 stage px; use 88 or more).
+- Metal grunge look: the `--m-*` tokens in `src/shell.html`, gunmetal plates, rivets, hazard stripes, molten accents. No toybox `--v-*` tokens.
+- The sim region (`contracts`, `dmath`, `catalog`, `levels`, `sim`, `monsters.sim`) is deterministic: no DOM, no THREE, no clocks, no `Math.random`, maths only through `VROOM.dmath`. It ports bit-exact to Swift for iOS. `tests/sim.cjs` enforces it.
+- Save data is forever: `contracts.LEGACY` lists are frozen; v13 ids append through `catalog.NEW_*`. New save fields go on the end of the v3 code tail with a `pos + n <= bytes.length * 8` guard, and in `save.apply()` with a default for older saves.
 - Honour `prefers-reduced-motion` for anything decorative.
-- Bump `APP_VERSION` (src/contracts.js) and package.json together on every user-visible change.
-- IP: original designs only. Nothing from Crash Bandicoot or any other existing game or brand.
+- Bump `APP_VERSION` (src/contracts.js) and `package.json` together on every user-visible change; the update gate keys off it.
+- Original designs only: nothing from Crash Bandicoot, Naughty Dog or any other game, no real brand names.
 - No em dashes in anything you write (code comments, docs, commit messages, replies).
 
 ## Working here
 
 ```bash
 npm ci && npx playwright-core install chromium
-npm run build                            # src/ + three.js -> index.html
-npm run build -- --out preview/x.html [--mine <owner>]   # a private preview build
-npm test                                 # every suite; builds and serves preview/test.html itself
-npm run lint                             # ESLint over the assembled modules, must be 0 findings
-node tests/sim.cjs                       # the sim region in Node
-python3 -m http.server 4173              # then /index.html?scene=race&level=12&bot=1
+npm run build                            # src/ -> index.html (CI checks it is fresh)
+npm run build -- --out preview/x.html    # a private preview build (preview/ is gitignored)
+python3 -m http.server 4173              # serve; the page must be served, not opened from disk
+npm test                                 # 15 suites; builds preview/test.html and serves it on a free port
+node tests/lint.cjs                      # ESLint over the assembled modules, must be 0 findings
+node scripts/doc-shots.cjs               # regenerate docs/*.png (needs a Chromium)
 ```
 
-- URL switches: `?scene=<id>`, `?level=N`, `?bot=1`, `?nosplash`, `?garage`, `?quality=low`.
+- URL switches: `?garage`, `?level=N` (race), `?world=N` (map, or with `?scene=race` that world's first level, `&boss` its finale), `?scene=<id>`, `?bot=1` (autopilot drives, no countdown), `?nosplash`, `?nocount`, `?noghost`, `?quality=low`, `?titleWorld=N`.
 - `CHROMIUM=/path/to/chrome` points the suites at a browser.
-- Each module has one owner (docs/OVERHAUL.md section 10); suites are `tests/<area>-check.cjs`, found by name.
+- Port 4173 can be held by a stale server. If a screenshot shows the wrong version, check `VROOM.contracts.APP_VERSION` in the served page.
+- The fairness bots (`tests/fairness-check.cjs`) drive all 121 levels. If level content fails them, fix the content (`src/levels.js`), never the thresholds.
+- Every feature gets a check in the suite that owns the area (see `tests/README.md`); keep the counts there and in the top-level README current.
+- Under load the render-budget and countdown checks can flake; rerun that suite alone (`node tests/run-all.cjs --only <suite>`) before treating a failure as real.
 
 ## Git
 
 - Commit as `Claude <noreply@anthropic.com>` (the repo config is set); the user's stop hook rejects other committer identities.
-- End every commit message with the two attribution lines the session provides.
+- End every commit message with the attribution lines the session provides.
+- Run `npm run build`, the full battery and lint before every commit. A pipe such as `node tests/run-all.cjs | tail` hides the exit code; capture to a log and check `exit`.
 - Agent worktree branches are merged into `main` with `git merge --squash` so each feature lands as one verified, Claude-authored commit.
-- Push `main`, then mirror it with `git push origin main:feat/chase-cam`. Never open a pull request unless asked.
-- Run `npm run build`, the full battery and lint before every push; commit the rebuilt `index.html`. A pipe such as `node tests/run-all.cjs | tail` hides the exit code; capture to a log and check `exit`.
+- When pushing: push `main`, then mirror it with `git push origin main:feat/chase-cam`. Never open a pull request unless asked.

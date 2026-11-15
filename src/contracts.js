@@ -118,7 +118,7 @@ const EVENTS = {
 /* ---------- inputs ----------
    InputFrame = { steer -1..1 (+ right), throttle 0..1, brake 0..1 (also reverse when stopped), boost 0|1, drift 0|1 }
    The sim quantizes every field on entry (sim.quantize): steer to 1/64, throttle and brake to 1/16. A
-   replay (ghost) is the packed input per tick (sim.packInput -> 16-bit int), run-length encoded by save.js. */
+   replay (ghost) is the packed input per tick (sim.packInput -> a 20-bit int: steer 8 bits, throttle 5, brake 5, boost 1, drift 1), run-length encoded by save.js. */
 
 /* ---------- frozen ids: SAVE DATA IS FOREVER ----------
    These are the v12.9 catalog orders exactly as shipped (tests/fixtures/v12-saves.json proves it).
@@ -154,7 +154,7 @@ const LEGACY = Object.freeze({
   SECRET_COLORS: ['p:rainbowshine'],   /* priced 0 but never free: only an award puts it in owned */
 });
 
-/* ---------- module API: what each module must publish (tests/contract-check.cjs verifies names exist) ----------
+/* ---------- module API: what each module must publish (tests/boot-check.cjs and tests/sim.cjs verify the names exist) ----------
    The JSDoc-ish shapes below are the contract. "->" is the return value.                         */
 const MODULE_API = {
   /* src/catalog.js (cars owner), DOM-free. The garage's data and every vehicle's physical stats.

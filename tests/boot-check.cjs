@@ -24,13 +24,15 @@ const { check, done, open, visibleLetters, smallTargets } = require('./lib.cjs')
   check('every module publishes its contract API', missing.length === 0, missing.join(' '));
   const ver = await page.evaluate(() => VROOM.contracts.APP_VERSION);
   check('APP_VERSION is 13.0.0', ver === '13.0.0', ver);
+  const metas = await page.evaluate(() => ({ vp: (document.querySelector('meta[name=viewport]') || {}).content || '', app: !!document.querySelector('meta[name=apple-mobile-web-app-capable]'), man: !!document.querySelector('link[rel=manifest]') }));
+  check('iPad shell: no-zoom viewport, home-screen app metas, manifest (v12 feel-check)', /user-scalable=no/.test(metas.vp) && /viewport-fit=cover/.test(metas.vp) && metas.app && metas.man, JSON.stringify(metas));
 
   const st = await page.evaluate(() => { const r = document.getElementById('stage').getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height) }; });
   check('stage scales 1200x700 to fit 1024x768', st.w === 1024 && st.h === 597, JSON.stringify(st));
   check('splash is the first scene', (await page.evaluate(() => VROOM.game.current())) === 'splash');
   const logo = await page.evaluate(() => !!document.querySelector('#splash [data-logo]'));
   check('the splash shows the VROOM logo (data-logo)', logo);
-  await page.waitForFunction(() => VROOM.game.current() === 'home', null, { timeout: 8000 }).catch(() => {});
+  await page.waitForFunction(() => VROOM.game.current() === 'home', null, { timeout: 15000 }).catch(() => {});
   check('splash hands over to home', (await page.evaluate(() => VROOM.game.current())) === 'home');
 
   for (const id of ['home', 'garage', 'map', 'race']) {

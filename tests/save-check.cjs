@@ -72,5 +72,66 @@ const sameSet = (a, b) => same([...(a || [])].sort(), [...(b || [])].sort());
   check('saves stay on the vroom.v2.p<n> key', mem.has('vroom.meta') && [...um.keys()].includes('vroom.v2.p0'));
   const v1 = boot({ 'vroom.v1': JSON.stringify({ body: 'fire', wheels: 'racing', color: '#43a047', extras: { horn: true } }) });
   check('a v1 save still migrates', v1.S.state.body === 'fire' && v1.S.state.wheels === 'racing' && v1.S.state.extras.horn);
+
+  /* the economy rules v12's damage, parade and verify suites guarded, on the v13 recordRun */
+  {
+    const { S: E } = boot();
+    E.progress.wallet = 1000;
+    E.recordRun(1, { time: 60, stars: 0, starsTotal: 10, rating: 1, tier: 'C', hits: 30, airTime: 0, clean: false });
+    E.recordRun(2, { time: 60, stars: 0, starsTotal: 10, rating: 1, tier: 'C', hits: 30, airTime: 0, clean: false });
+    E.recordRun(3, { time: 60, stars: 0, starsTotal: 10, rating: 1, tier: 'C', hits: 30, airTime: 0, clean: false });
+    check('hits dent the machine, capped at 9', E.progress.damage === 9, String(E.progress.damage));
+    const w0 = E.progress.wallet, cost = E.repairPrice();
+    check('repair costs 2 stars a dent and hammers every dent out', cost === 18 && E.repair() && E.progress.damage === 0 && E.progress.wallet === w0 - 18);
+    const u0 = E.progress.wallet;
+    check('upgrade ladders charge 60 / 150 / 350 and stop at 3 pips', E.buy('upgrade', 'engine') && E.buy('upgrade', 'engine') && E.buy('upgrade', 'engine') && !E.buy('upgrade', 'engine') && E.progress.upgrades.engine === 3 && E.progress.wallet === u0 - 560);
+    const p1 = E.recordRun(10, { time: 80, stars: 5, starsTotal: 20, rating: 1, tier: 'B', hits: 1, airTime: 0, clean: false, bonus: 3 });
+    const p2 = E.recordRun(10, { time: 80, stars: 5, starsTotal: 20, rating: 1, tier: 'B', hits: 1, airTime: 0, clean: false, bonus: 1 });
+    check('a finale pays its first-clear bonus once, plus the boss bonus stars', p1.payout === 5 + 3 + 25 + 3 && p2.payout === 5 + 3 + 1, p1.payout + ' ' + p2.payout);
+    const b = E.recordRun(4, { time: 50, stars: 1, starsTotal: 9, rating: 1, tier: 'C', hits: 0, airTime: 4, clean: true, maxAir: 3.2, maxDrift: 3.5 });
+    check('3 s of air and a 3 s drift earn the v13 badges', b.badges.includes('air') && b.badges.includes('drift'), JSON.stringify(b.badges));
+    check('the parade stays shut until level 120 is cleared', !E.levelOpen(121));
+    for (let n = 1; n <= 120; n++) if (!E.progress.levels[n]) E.progress.levels[n] = { best: 1, rating: 1 };
+    const par = E.recordRun(121, { time: 70, stars: 3, starsTotal: 10, rating: 1, tier: 'C', hits: 0, airTime: 0, clean: false });
+    const par2 = E.recordRun(121, { time: 70, stars: 3, starsTotal: 10, rating: 1, tier: 'C', hits: 0, airTime: 0, clean: false });
+    check('the parade opens after 120, pays its 100-star jackpot once and the champ badge', E.levelOpen(121) && par.payout === 106 && par2.payout === 16 && E.progress.badges.includes('champ'));
+  }
+  /* a full localStorage sheds the longest replays and still saves the stars */
+  {
+    let cap = 1e9;
+    const mem = new Map();
+    globalThis.localStorage = { getItem: k => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => { if (String(v).length > cap) throw new Error('QuotaExceededError'); mem.set(k, String(v)); }, removeItem: k => mem.delete(k) };
+    const VROOM = { scenes: {} };
+    new Function('VROOM', simSource() + `\n(function (VROOM) { 'use strict';\n${fs.readFileSync(path.join(ROOT, 'src/save.js'), 'utf8')}\n})(VROOM);`)(VROOM);
+    const Q = VROOM.save;
+    Q.recordRun(1, { time: 40, stars: 2, starsTotal: 5, rating: 1, tier: 'C', hits: 0, airTime: 0, clean: true }, { t: 40, ticks: 2, rle: 'a'.repeat(4000) + ',', b: 'k' });
+    cap = 3000;
+    Q.recordRun(2, { time: 40, stars: 2, starsTotal: 5, rating: 1, tier: 'C', hits: 0, airTime: 0, clean: true }, { t: 40, ticks: 2, rle: 'b,'.repeat(100), b: 'k' });
+    const j = JSON.parse(mem.get('vroom.v2.p0') || 'null');
+    check('a full localStorage drops the longest replay, never the progress', !!j && j.levels[1].t13 === 40 && !j.levels[1].replay && !!j.levels[2].replay && j.current === 3);
+    cap = 1e9;
+  }
+  /* profiles: three players on their own keys */
+  {
+    const { S: A, mem: m } = boot();
+    A.progress.wallet = 77; A.save();
+    A.switchProfile(1);
+    const ls = Object.fromEntries(m);
+    const { S: B } = boot(ls);
+    check('switching profile opens an empty save on vroom.v2.p1', B.meta.active === 1 && B.progress.wallet === 0);
+    const ls2 = Object.fromEntries(m); ls2['vroom.meta'] = JSON.stringify({ active: 0, avatars: ['pup', 'kitty', null] });
+    const { S: C0 } = boot(ls2);
+    check('and switching back finds profile 0 untouched', C0.progress.wallet === 77);
+  }
+  /* the save QR decodes byte-exact (v12 profile-check), with the URL the hosted game reads */
+  {
+    let jsQR = null;
+    try { jsQR = require('jsqr'); } catch (e) { /* optional */ }
+    const { S: Z } = boot({ 'vroom.v2.p0': JSON.stringify(fx.cases[1].saved) });
+    const M = Z.qrMatrix(), q = 4, size = (M.length + 8) * q, img = new Uint8ClampedArray(size * size * 4).fill(255);
+    for (let r = 0; r < M.length; r++) for (let c = 0; c < M.length; c++) if (M[r][c]) for (let y = 0; y < q; y++) for (let x = 0; x < q; x++) { const i = (((r + 4) * q + y) * size + (c + 4) * q + x) * 4; img[i] = img[i + 1] = img[i + 2] = 0; }
+    const got = jsQR ? jsQR(img, size, size) : null;
+    check('the save QR scans (jsQR) to the hosted URL carrying this save code', !!got && got.data === Z.SAVE_URL_PREFIX + Z.packCompact(), got ? got.data.slice(0, 60) : 'no decode');
+  }
   done();
 })().catch(e => { console.error(e); process.exit(1); });

@@ -1,195 +1,104 @@
-# Vroom
+# VROOM
 
-Build-a-car garage game for a 3-5 year old. Browser, single `index.html`, no dependencies, no build step.
+A late-90s console style metal grunge 3D racer for players around 10 to 12. Browser, one shipped
+`index.html` built from `src/` (three.js r170 inlined), offline, iPad first, with a native iOS shell.
+This is the v13 spec (2026-11-14, user-directed overhaul: "make this classic playstation metal grunge
+style, full physics overhaul and car design, go absolutely wild"). The detailed design, art bible and
+module map are in [docs/OVERHAUL.md](docs/OVERHAUL.md); the binding interfaces are `src/contracts.js`.
+The v1 to v12 toybox spec is in git history and the v12 game in `legacy/v12/`.
 
 ## Design rules (non-negotiable)
 
-- Zero required reading. Icons, pictures, and numerals only.
-- No fail states, no timers. Nothing to lose: stars only go up, obstacles bonk-and-stop but never end a run.
-- Every interactive element >= 64px rendered at iPad landscape (1024x768).
-- Every tap gives instant feedback: animation + synthesized sound.
-- Loop: build -> drive -> collect stars -> celebrate -> unlock cooler stuff -> build again.
+- Zero words on screen. Numerals, symbols and pictograms only; the VROOM logo is the one word.
+- No fail states. Crashes, monsters, bosses, gaps and walls knock you back, spin you out, dent the
+  machine and cost time; nothing ends a run. The crane hook puts a fallen car back on the road. A boss
+  always loses the race to the flag. Stars only go up.
+- Every tap target at least 64 px rendered at iPad landscape (1024x768).
+- Every tap answers instantly: a 4 px plate slam and a metallic clank.
+- `prefers-reduced-motion` turns off decorative motion (shake, glints, sway, idle bobs, weather).
+- Save data is forever: every v12 save, profile and code loads with its stars, unlocks and parts.
+- Real skill: harder, faster, nothing patronising, but every level fair for a middling driver.
+- Original: a late-90s console style, never a copy of an existing game, character or brand.
+- Loop: race -> collect stars, medals and boss bonuses -> build a meaner machine -> race harder worlds.
 
-## v3 amendment (2026-07-10, user-directed)
+## Look
 
-v1's "no scores" rule is amended: stars are now collected and kept as the game's
-only currency. There is still no way to lose stars or fail a level.
+Riveted gunmetal plates, chrome trims, rust from the bolt holes, hazard stripes, molten light from
+below; chunky low-poly flat-shaded 3D with saturated dramatic skies, hard rim light and heavy fog. The
+chrome VROOM logo with a molten O and a ten-step extrusion. Tokens `--m-*` in `src/shell.html`; each
+world tints the UI with its four-colour accent.
 
-## Scene 1: Garage
+## Scenes
 
-Kid assembles a vehicle from big picture buttons:
+1. **Splash.** A foundry anvil-and-hammer sting, then the chrome logo smashes through a riveted plate
+   with a shockwave, sparks and an engine roar. About 3 s; any tap skips.
+2. **Home.** The world of the day (day number mod 12) as a 3D diorama, the logo, the player's machine
+   idling on a hazard podium (tap to rev), a huge GO showing the next level (a skull on finales), garage,
+   map, album, settings and profile plates, the wallet. A new-version plate appears here when one is live.
+3. **Garage.** The machine on a turntable in a night foundry bay. Tabs: body, wheels, paint, decal,
+   extras, buddy, number, workbench (upgrade ladders and repair). Locked parts rusted with a star price;
+   preview, buy, bolt on with sparks. Stat bars for speed, power, grip, armour and air.
+4. **Map.** Twelve world tabs with riveted emblems (locked worlds behind a hazard gate); a world page is
+   a chain of ten level plates over its backdrop, each with its number, stars and medal, the finale plate
+   with the boss skull. The parade after level 120.
+5. **Race.** Countdown lamps, then the HUD: timer, stars, a progress rail (checkpoints, flag, you, your
+   ghost, the boss), an analog gauge with gear and rpm, a ten-segment boost meter, hang-time and drift
+   readouts, trick and big-air popups, the boss heat bar on finales. Controls: gas, brake, boost and drift
+   plates and a drag-steer zone (or tilt, or left / right plates), keyboard and gamepad. Pause overlay.
+   Your best run on the level races alongside as a ghost.
+6. **Results.** A slammed gunmetal card: medal stamp (S / A / B / C as chevrons), 1 to 3 stars, time,
+   new-best flare, stars collected, air / drift / tricks / hits / respawns, the boss stamp on finales, the
+   payout ticking into the wallet, badges as toasts; replay, garage, map, home and a big NEXT.
+7. **Overlays.** Settings (quiet, CRT scanlines, steering mode, sensitivity), profiles (three avatars,
+   the save QR, copy and paste a code, a wordless confirm), the album (badges and twelve boss emblems).
 
-- **Body** (tap cycles, 15): dump truck, digger, cement mixer, fire truck, monster truck + unlockable police car, race car, tractor, ice cream truck, rocket car, UFO + premium limo (250), dragon (300), train (350), royal carriage (400)
-- **Wheels** (tap cycles, 8): normal, monster, racing + unlockable gold, flower, tank + premium glow (90), star (120)
-- **Extras** (6 toggles): horn, beacon, flag free + purchasable wings (40), rocket booster (60), party hat (25)
-- **Paint**: 12 color swatches (6 free + purple, teal, lime, white, black, rainbow unlockable), instant repaint with splat sound
-- **Extras** (toggles): horn, spinning beacon light, flag
-- Tapping the vehicle honks (per-body honk voice)
-- **Shop, no reading**: locked parts show grayed in the cycle with a star price tag under the preview. Tap the tag: enough stars = fanfare + confetti unlock; not enough = boink + wallet shake. GO is disabled while a locked part is selected.
-- Star wallet chip always visible
-- Big green GO arrow -> drive current level. Map button -> level map.
+## Worlds and tracks
 
-Any owned combination is valid. Vehicle preview updates live with bounce + pop.
+Twelve worlds, ten levels each, plus the parade (121): Scrapyard Foundry, Ember Canyon, Neon Necropolis,
+Drown Docks, Frostbite Pass, Scorch Flats, Wreck Cove, Orbital Scrapheap (gravity 3.6), Magma Forge,
+Rot Sugar Carnival, Abyss Trench, Storm Citadel. Levels come from a seeded course grammar over the track
+pieces (straight, bend, banked, hill, crest, ramp, gap, corkscrew, loop, halfpipe, split, rumble) with
+per-world feature weights, surfaces, hazards and props. Difficulty rises through the 120: narrower roads,
+longer gaps, more hazards and monsters. Every tenth level is a boss chase. Par S / A / B comes from a
+pace model and is proven by the autopilot.
 
-## Scene 2: World map (v5)
+## Machines
 
-120 levels across 12 themed worlds of 10: construction day, sunset, night, rain,
-snow, desert, beach, space, volcano, candy land, deep sea, sky kingdom (v12). A row of 8 themed world tabs (locked until the
-previous world's last level is beaten) selects a page of 10 big level buttons.
-Finished level N unlocks N+1. Locked = gray + padlock. Done = number + 1-3 star
-rating + S/A/B/C medal badge. Free-drive button up top. House returns to garage.
+31 bodies in six classes (brute, hauler, racer, tank, hover, freak): the 23 v12 ids rebuilt as heavy
+machines plus eight new ones. 20 wheel sets, 32 paints (solid, candy, metallic, patterns, eight metal
+finishes), 14 decals, 18 extras with small stat effects, 12 buddies, a race number. Upgrades: engine,
+armour, magnet, boost tank, springs (three pips each). Repair hammers out dents (2 stars each). The
+default build is the free Mauler monster truck.
 
-World flavor: rain (particles, puddles everywhere), snow (flakes, ice slicks,
-snowmen, slush), desert (giant sun, cacti, rolling tumbleweeds), beach (waves,
-palms, sandcastles, lane-hopping crabs), space (starfield, moon road, craters,
-friendly aliens, LOW GRAVITY floaty jumps, headlights). Tumbleweeds and crabs
-MOVE — the first moving obstacles. First clear of a world's last level banks a
-+25 star trophy bonus.
+## Monsters
 
-## Scene 3: Road
+Two creature kinds per world (lurkers, roamers, swarms, divers, burrowers) and a boss per world. Every
+hit is telegraphed at least 0.3 s ahead and dodgeable; a knock costs at most 1 s of control. Bosses
+rubber-band behind, surge alongside, attack with throws, sweeps, rolls, eruptions, leaps and charges,
+land dazed after a leap (ram them three times to smash them), and are beaten at the flag. Boss bonus
+stars: 3 smashed, 2 outrun untouched, 1 outrun.
 
-Chase-cam (v10): the road runs out into the screen toward a vanishing point, 3 lanes
-left/center/right. v11: the road **bends and rolls**. Each level has a seeded course of
-curvature stretches (sweepers, S/Z bends, chicanes, hairpins; bolder by world) and cosine
-hills (flat construction/rain/beach, rolling farmland and dunes, big snowy crests, lumpy moon);
-the camera rides the road's centerline so bends swing the whole world and crests lift the far
-road into the sky. Levels are built by a **beat sequencer**: a library of 30 formations
-(star trails/snakes/rainbows/arcs, slaloms, gates, closing walls, bowling, minefield, cone
-forest, capsule alley, puddle party, oil slalom, breather, four ramp beats, two beats per
-world 5-8) sequenced per level from a signature beat + contrasts, with guarantee passes for
-the economy and difficulty curve; finales on levels 10/20/.../80. Each world has roadside
-pools, an overhead structure, a horizon landmark, a start jingle, an ambience bed, its own
-star-chime scale, and seeded live sky events. The exact vehicle built in the garage drives it, seen from behind (a parallel
-rear-view art set per body, with tires, extras, buddy, decal, mud and damage). Props are
-perspective-scaled sprites; the ground plane (bands, rumble strips, dashes, ramps, finish
-stripe) is painted on a canvas each frame; roadside set pieces rush past on both shoulders.
+## Physics
 
-- **Gas pedal** (green, bottom-right): hold to drive. **Brake pedal** (red): squeal stop.
-  Holding anywhere on the road also drives (v1 muscle memory).
-- **Lanes**: swipe left or right anywhere on the road (70 px of drag per lane, long swipes walk several), or A/D / arrow keys. A lane-dot pill bottom-left shows the lane; two soft chevrons beside the car hint the swipe on the first two levels until the first steer. The car stays square to the road (no skew or bank), squatting on the gas and lifting on the brake.
-  Steer INTO stars, AWAY from obstacles.
-- Tap vehicle = honk
-- Mud puddle -> splash, muddy wheels (lane-specific). The mud STAYS (v4.4b): the truck
-  comes home dirty, a sponge tile appears on the workbench tab (the wrench tab pulses a
-  dot), and washing is a mini-game — rub the truck with a finger, soap bubbles trail the touch, fill the
-  meter, rinse, sparkle. Pure care-play, no stars needed.
-- **Decals** (v4.4b, alive since v9): a sticker button beside body/wheels tap-cycles a
-  flank decal — a flickering layered flame, a shooting star with sparkle trail, a glossy
-  heart with a heartbeat, a crackling electric bolt, wobbling googly eyes — each a priced
-  unlock through the same tag flow. Decals ride into photos and save codes (format v2).
-- **Race number** (v12.3): the sticker tab leads with a roundel tile. A keypad overlay (0-9,
-  erase, clear; two digits max) previews the number live on a white roundel; OK costs 400
-  stars every time a new number goes on, taking it off is free. The roundel owns the centre of
-  the body's decal panel on both views (1.3x the sticker scale, clamped 42-65 px); a sticker
-  on the same panel shrinks to 55% and perches on the roundel's upper-front shoulder. A body
-  with a painted number of its own (the race car) takes the typed number in that slot instead. Travels in the build, photos and the v3 save-code tail.
-- **Album photos** (v12.4): every finish-line photo is taken where it happened: the world's
-  sky, ground and road from its palette behind the car, its map icon stamped in the corner
-  (the parade gets a rainbow road and the champion cup). Tap a photo and it fills a big
-  polaroid with the level, the stars collected and the medal; tap an earned sticker and it
-  pops up big with confetti. Tap anywhere to put it back.
-- **Victory Parade** (v9): beat all 80 levels and a golden trophy button appears on the
-  map, forever. It opens the finale: rainbow road, golden sky, no hazards, floaty
-  low-gravity jumps, waves of stars, capsules, every found buddy cheering roadside,
-  fireworks all the way to a glowing trophy arch. First finish pays +100 stars and the
-  seventh album sticker (Champion); replays pay +10. Pure celebration.
-- Ramp -> jump with "whee" arpeggio (spans all lanes; high stars float over ramps)
-- Traffic cones -> tumble with boinks (soft: fun, no penalty)
-- Barrels / rocks -> bonk, car stops and wobbles, +1 damage (hard: never a fail, just a stop)
-- Oil slicks (level 5+) -> spin-out, half speed, no damage
-- TNT crates (level 12+) -> cartoon boom, +2 damage
-- **Damage** (v4): persists 0-9 (wrench chip in HUD + celebrate). Truck shows scuffs at 1+,
-  cracked glass at 3+, smoke + 15% slower at 5+. Jumping clears hazards. Shield upgrade soaks
-  damage. Finish a run with no new dings -> +2 star clean bonus. Never blocks play.
-- **Garage repair**: a wrench tile on the workbench tab when dinged, 2 stars per damage point.
-- **Fuel** (v12.2): an 8-unit tank, one unit per three levels of road, about 24 levels a tank (fuel gauge in the HUD).
-  Low (2) = 20% slower + engine coughs; dry = a 55% crawl that still finishes. Never strands.
-  Fill-up tile on the workbench: 1 star a unit; a short wallet buys what it can.
-- **Tires** (v12.2): 8 units of tread, a unit per six levels plus a sixth per hard hit, about 48 levels a set (tire
-  gauge in the HUD). Bald (2) = lane changes at 60% speed, 10% off the top, a scrub on every
-  turn. New set on the workbench: 1 star a unit.
-- **Shine bonus** (v12.2): cross the line with no mud and zero damage and the collected
-  stars pay +50% (rounded up), shown as a sparkle chip on the results card; first time earns
-  the eighth album sticker. Puddles and bonks during the run cost it, so garage care pays
-  out on the road.
-- **Garage upgrades** (star-paid, 3 pips each): engine (+80 top speed/level),
-  tank (+2 units of fuel per pip, the new space comes filled), springs (jumps 18% higher per pip, same
-  landing spot), shield (each pip raises the chance a point of damage bounces off: 50 / 65 / 80%, never perfect; a held hit pings with a blue flash), star magnet (wider pull/level).
-- **Keyboard**: WASD or arrows steer (W/S = lanes), D/->/space = gas, A/<- = brake.
-- **Surprise capsules** (v4.3): wrapped gift boxes on the road (1-2 per level from level 2,
-  common in free drive). Driving into one pops it: weighted prize roll of +3 stars, +8 stars,
-  or a one-off gag animation (duck parade, ball burst, rainbow bloom, bird banner).
-- **Time medals** (v4.3): every level records best time; S/A/B/C medal by par curve
-  (S = near-clean full-throttle run; engine upgrades matter late). Small timer in the HUD
-  progress chip, medal pops on celebrate, badge on the level map. Best medal is kept —
-  time never punishes, only rewards.
-- **Surprise events** (v12.5): three small surprises rotate with the calendar day (seeded on
-  YYYY-MM-DD, so the whole day shows the same one): a sleeping dino on one beaten level's node that
-  naps across the road and drops 5 bonus stars when honked at, approached or bumped (never a stop,
-  never damage); a rainbow day after level 30 whose marked level awards the secret rainbow-shine
-  paint once; a weather day that runs one world under borrowed rain or snow; plus a sun chip with
-  the day of the month on the map.
-- **Free drive** (v4.3): big road button on the map starts an endless cruise — no finish,
-  no timer, kid-paced. Difficulty rises gently with distance, day/sunset/night cycle every
-  stretch, stars bank automatically when heading home.
-- Stars -> chime + burst, +1 to run counter, banked to wallet at the finish (+3 finish bonus)
-- Finish flag -> confetti, star tally, next level unlocked; buttons: replay / next / garage
-- House button (top-left) returns to garage anytime
-- Levels are seeded-random: longer and denser as the number grows. Day sky 1-10,
-  sunset 11-20, night 21-30.
+Deterministic, fixed 120 Hz step, bit-exact maths, seeded rng; ports to Swift. Tuning targets (proven by
+`tests/physics-check.cjs`): top speed 40 m/s for the base monster truck, about 50 for racers, about 34 for
+tanks, boost +30 percent; 0 to 30 m/s in 3.0 to 3.5 s; lateral grip 1.0 to 1.2 g on asphalt, 0.15 on
+ice; braking 40 to 0 under 3.5 s; 1 to 3 s of air on a ramp, up to 5 s on mega ramps, 2.5 times in orbit;
+a 3 s drop keeps over 90 percent of its speed; a 15 degree wall glance keeps 85 percent.
+
+## Economy
+
+Stars collected + 3 a race, +2 for a clean run (no hits, no respawns), +25 the first time a finale falls,
+the boss bonus, +100 the first parade. Bests, ratings and tiers only go up. v13 badges append to v12's:
+first boss, 3 s of air, a 3 s drift, every star on a level.
 
 ## Tech
 
-- SVG vehicle built from part groups, recolored via CSS var `--paint`. Same SVG in both scenes.
-- Web Audio API, all sounds synthesized. Audio unlocked on first pointer event (iOS).
-- Pointer events only (touch + mouse unified). `touch-action: none`, pinch-zoom locked.
-- Fixed 1200x700 stage, scaled to fit viewport (letterbox). Landscape-first.
-- State `vroom.v2.p<n>` per profile (up to 3 kids, buddy-face avatars, `vroom.meta` tracks
-  the active one); legacy single-profile and v1 saves migrate automatically.
-- Save codes (v6): the profile overlay shows a scan-to-open QR: the hosted URL with the
-  compact save baked in (bit-packed, no photos/best-times; hand-rolled QR encoder,
-  versions 1-10 w/ multi-block RS interleaving). Scanning opens the game and raises the
-  wordless ✓/✗ import confirm. Copy/paste buttons carry a full gzip text code.
-- Levels generated from a seeded PRNG (level number = seed) so each level is stable across plays.
-
-## Scene 4: Sticker album (v4.4)
-
-Book button in the garage opens a paper album page, all wordless:
-
-- **Buddies** (top row): six critters — pup, kitty, ducky, dino, penguin, monkey —
-  found ONLY in surprise capsules (mystery silhouettes until found). A found buddy
-  auto-hops into the cab: head peeking over the roofline, bobbing, squeaks when the
-  vehicle is tapped, appears in every scene and photo. Tap a buddy sticker to make it
-  ride (green ring); tap the rider to hop out.
-- **"First!" badges** (middle row): first jump, first clean run, first S medal, first
-  world clear, first purchase, first gag. Earned once, announced by a wordless
-  pop-in toast, silhouettes until earned.
-- **Photos** (bottom row): every finish saves a polaroid of the exact build (paint,
-  buddy, extras) with the level number and time medal. Last six kept, tilted like a
-  real album. Everything wiggles + sounds when tapped.
-
-## Look ("Toybox", v7)
-
-One warm design language everywhere (the album's): cream paper surfaces, wood toolbar
-and racks, warm putty for locked states (never cold gray), one amber for selection, one
-green for go/afford, flat unblurred shadows, a 16/22/30/38px radius scale, dot-pattern
-textures, one press squash, staggered pop-in entrances, warm-brown scrim/letterbox/iris.
-The map is a journey: a winding dashed road with level nodes on it, one padlock ahead,
-quiet dots beyond, meadow tinted per world. Celebrations happen on a single cream
-results card. Navy is game-world art only, never chrome.
-
-## Feel (v4.5)
-
-- The car is a character: leans back accelerating, dives braking, banks through lane
-  changes, squashes + kicks dust on landing. Crashes hit-stop for 90ms then shake on
-  both axes. Speed lines at ~top speed. Star streaks climb a coin-combo pitch ladder.
-- Engine = two detuned saws through a speed-swept filter + wind layer at speed; every
-  sound routes through one master compressor so stacked sfx never clip iPad speakers.
-- Scene changes iris-reveal. Celebrations pace the payoff: tally, rating stars, time
-  medal, then the buttons slide in.
-- Portrait shows a rotate-me overlay (the 64px touch floor only holds in landscape).
+`src/` modules, one owner each, built by `scripts/build.cjs`. three.js r170, eslint, playwright-core
+and jsqr are dev dependencies only. Saves in localStorage (`vroom.v2.p<n>`, `vroom.meta`), v12 compact
+and full codes plus the QR. The update gate compares `APP_VERSION`. 15 test suites (`npm test`).
 
 ## Verify
 
-- `python3 -m http.server 4173` and open http://localhost:4173
-- Playwright: full loop (cycle all parts, GO, drive to finish, confetti, return), console clean, touch targets >= 64px at 1024x768.
+`npm run build`, `npm test` (every suite green), `node tests/lint.cjs` (0 findings), and a look at the
+screenshots from `node scripts/doc-shots.cjs`.

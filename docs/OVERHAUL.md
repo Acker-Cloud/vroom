@@ -7,8 +7,8 @@ New engine (three.js r170, built like PuttX), new physics, new cars, new everyth
 
 This file is the design and the module map. `src/contracts.js` is the binding version of every
 interface below; when the two disagree, fix whichever is wrong in the same change. `SPEC.md`,
-`docs/ARCHITECTURE.md` and `CONTRIBUTING.md` describe v12 and are kept for history until the
-integrator rewrites them; v12 itself lives in `legacy/v12/` (game, suites, art) as a reference.
+`docs/ARCHITECTURE.md` and `CONTRIBUTING.md` describe v13; v12 itself lives in `legacy/v12/` (game,
+suites, art) as a reference.
 
 ## 1. Audience and rules
 

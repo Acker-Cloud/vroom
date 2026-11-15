@@ -3,7 +3,7 @@
    The game ships no build step; this is a one-off asset tool, re-run only when icon.svg changes.
      docs/icons/icon-192.png            manifest, purpose "any" (rounded corners, transparent)
      docs/icons/icon-512.png            manifest, purpose "any"
-     docs/icons/icon-512-maskable.png   manifest, purpose "maskable" (full-bleed cream, OS crops it)
+     docs/icons/icon-512-maskable.png   manifest, purpose "maskable" (full-bleed soot, OS crops it)
      docs/icons/apple-touch-icon.png    180px, full-bleed (iOS rounds its own corners)
    Usage: CHROMIUM=/path/to/chrome node scripts/render-icons.cjs   (else playwright-core's Chromium) */
 'use strict';
@@ -25,7 +25,7 @@ const OUT = [
   const browser = await pw.chromium.launch({ executablePath: exe });
   for (const o of OUT) {
     const page = await browser.newPage({ viewport: { width: o.size, height: o.size }, deviceScaleFactor: 1 });
-    const bg = o.bleed ? 'background:#fdf6ea' : 'background:transparent';
+    const bg = o.bleed ? 'background:#0d0e12' : 'background:transparent';
     await page.setContent(`<!doctype html><html><body style="margin:0;${bg}"><div id="i" style="width:${o.size}px;height:${o.size}px;line-height:0">${svg}</div></body></html>`);
     await page.evaluate(s => { const el = document.querySelector('svg'); el.setAttribute('width', s); el.setAttribute('height', s); }, o.size);
     const buf = await page.locator('#i').screenshot({ omitBackground: !o.bleed, type: 'png' });
