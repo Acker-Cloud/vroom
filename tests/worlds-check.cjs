@@ -4,8 +4,9 @@
      the budget from cameras along the course (docs/OVERHAUL.md: the whole race view under 150 draw calls and
      250k triangles; the world gets WORLD_CALLS / WORLD_TRIS of that, the rest is the car and the monsters)
    - update / onEvent take every sim event without throwing, dispose frees the GPU geometry
-   - fx: every kind emits and decays back to nothing, unknown kinds are silent; smoke and dust are pooled,
-     camera-facing billboards with an alpha falloff (not lit solids); a boss leaves a particle trail and arrives in a blast
+   - overhead beams stay off jump flights (structurally, and under the autopilot on all 120 levels)
+   - fx: every kind emits and decays back to nothing, unknown kinds are silent; smoke, dust and water spray are
+     pooled, camera-facing billboards with an alpha falloff (not lit solids); a boss leaves a particle trail and arrives in a blast
    - frost is on the grunge brief: a dark frame, a dark iron deck, warm sodium light in it
    - creatures (src/monsters.js): drawn true to their sim radius, eye glints, a world-contrast rim that runs hot
      through a tell, bosses at least their 14.0 size with their own light and a rise-up entrance
@@ -77,6 +78,44 @@ const WORLD_CALLS = 115, WORLD_TRIS = 200000;
   const leaks = worlds.filter(r => r.leak > 2);
   check('dispose() frees the world geometry', leaks.length === 0, leaks.map(r => r.w + ':+' + r.leak).join(' '));
 
+  /* overheads stay off flights: none within 230 m after a ramp lip or a gap, none within 120 m after a crest,
+     steep hill, halfpipe, split or loop; and the autopilot, driving all 120 levels, passes under every beam with its wheels
+     at most 2 m off the road (4 m under the tall arches), so the chase camera (4 to 5 m above the car) never
+     flies through one (14.1 review: level 13's bonegate filled the screen) */
+  const over = await page.evaluate(() => {
+    const S = VROOM.sim, TF = VROOM.contracts.TF, ctx = VROOM.game.ctx, near = [], high = [], F = {};
+    let count = 0;
+    for (let n = 1; n <= 120; n++) {
+      const spec = VROOM.levels.level(n), track = S.buildTrack(spec);
+      const rig = VROOM.worlds.buildWorld(ctx, track, spec), ov = rig.overheads || [], arch = rig.overArch;
+      rig.dispose();
+      for (const s of ov) {
+        const i0 = Math.round(s / track.step);
+        for (let j = i0; j >= 0 && j >= i0 - 230 / track.step; j--) {
+          const p = spec.pieces[track.piece[j]], hop = (p && (/^(crest|halfpipe|split)$/.test(p.type) || (p.type === 'hill' && Math.abs(p.rise || 0) > 0.1 * (p.len || 1)))) || (track.flags[j] & TF.LOOP);
+          if ((track.flags[j] & (TF.RAMP | TF.GAP)) || (hop && (i0 - j) * track.step <= 120)) { near.push(n + '@' + Math.round(s)); break; }
+        }
+      }
+      const st = S.newRace(track, S.carParams(VROOM.catalog.stats({ body: 'monster', wheels: 'monster', extras: {} }), {}), { seed: spec.seed, mode: 'race' });
+      const hi = new Float32Array(track.n);
+      while (!st.finished && st.tick < 60 * 240) {
+        S.step(st, S.autopilot(st, 1)); st.events.length = 0;
+        const c = st.car, f = S.frameAt(track, Math.max(0, Math.min(track.length, c.s)), F), pt = S.toWorld(track, c.s, c.d, 0);
+        const h = (c.x - pt[0]) * f.ux + (c.y - pt[1]) * f.uy + (c.z - pt[2]) * f.uz, i = Math.max(0, Math.min(track.n - 1, Math.round(c.s / track.step)));
+        if (h > hi[i]) hi[i] = h;
+      }
+      for (const s of ov) {
+        count++;
+        let m = 0;
+        for (let i = Math.round(s / track.step) - 4; i <= Math.round(s / track.step) + 4; i++) if (i >= 0 && i < track.n) m = Math.max(m, hi[i]);
+        if (m > (arch ? 4 : 2)) high.push(n + '@' + Math.round(s) + ':' + m.toFixed(1));
+      }
+    }
+    return { count, near, high };
+  });
+  check('overhead beams stay off jump flights: none just past a ramp, gap, crest, halfpipe, split or loop, and the autopilot passes under every one on the road',
+    over.count > 400 && over.near.length === 0 && over.high.length === 0, `${over.count} overheads; near ${over.near.slice(0, 5).join(' ')}; high ${over.high.slice(0, 5).join(' ')}`);
+
   const menus = await page.evaluate(() => {
     const ctx = VROOM.game.ctx, out = { bad: [], card: null };
     for (let w = 1; w <= 12; w++) {
@@ -138,13 +177,17 @@ const WORLD_CALLS = 115, WORLD_TRIS = 200000;
         /* life: a puff fades in, then thins away */
         for (let i = 0; i < 80; i++) rig.update(0.05);
         out.after = puff.count;
+        /* water spray is puffs too (lit chunks read as white rocks): a splash adds puffs and no solids */
+        const chunk = pools.find(o => o.geometry.type === 'IcosahedronGeometry'), solid0 = chunk ? chunk.count : -1;
+        rig.emit('splash', [0, 0, 0], { n: 12 }); rig.update(0.02);
+        out.splash = { puffs: puff.count, solids: chunk ? chunk.count - solid0 : -1 };
       }
       rig.dispose();
     } catch (e) { out.err = String(e); }
     return out;
   });
   check('fx: smoke and dust are soft camera-facing billboards (pooled, alpha falloff, faded per particle), not lit solids',
-    !bb.err && bb.puff && bb.billboard && bb.soft && bb.pooled && bb.alpha.hi > 0.2 && bb.alpha.hi <= 1 && bb.falloff.mid > 150 && bb.falloff.edge < 30 && bb.falloff.corner === 0 && bb.after === 0, JSON.stringify(bb));
+    !bb.err && bb.puff && bb.billboard && bb.soft && bb.pooled && bb.alpha.hi > 0.2 && bb.alpha.hi <= 1 && bb.falloff.mid > 150 && bb.falloff.edge < 30 && bb.falloff.corner === 0 && bb.after === 0 && bb.splash.puffs >= 12 && bb.splash.solids === 0, JSON.stringify(bb));
 
   const trail = await page.evaluate(() => {
     const ctx = VROOM.game.ctx, out = {};

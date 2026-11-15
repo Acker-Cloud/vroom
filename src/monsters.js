@@ -962,7 +962,8 @@ function build(ctx, kind) {
     mats.push(gm);
     glint = new T.Sprite(gm);
     glint.position.set(G.eyeAt.pos[0], G.eyeAt.pos[1], G.eyeAt.pos[2] + 0.05);
-    glint.userData.size = (isBossK ? 2.6 : 0.9) + K.r * 0.55;
+    /* the small ones (packs, roamers) read as eyes before they read as a shape: a bigger flare, not a bigger body */
+    glint.userData.size = (isBossK ? 2.6 : 0.9) + K.r * 0.55 + (K.arche === 'swarm' || K.arche === 'roamer' ? 0.5 : 0);
     glint.scale.setScalar(glint.userData.size);
     piv[G.eyeAt.part].add(glint);
   }
@@ -1002,7 +1003,7 @@ function build(ctx, kind) {
     loc[0] = dx * c - dz * s; loc[1] = dy; loc[2] = dx * s + dz * c;
     return loc;
   }
-  const isBoss = K.arche === 'boss', isDebris = K.arche === 'debris', flyer = !!G.flags.flyer || K.arche === 'diver' || (K.fly > 0 && K.arche !== 'boss');
+  const isBoss = K.arche === 'boss', SMALL = K.arche === 'swarm' || K.arche === 'roamer', isDebris = K.arche === 'debris', flyer = !!G.flags.flyer || K.arche === 'diver' || (K.fly > 0 && K.arche !== 'boss');
   const sm = (cur, tgt, k) => cur + (tgt - cur) * k;
 
   function poseChain(a, dt, t) {
@@ -1181,7 +1182,7 @@ function build(ctx, kind) {
       const tell = st === 'tell' && !a.defeated, urg = tell ? Math.min(1, u / Math.max(0.2, a.tellT || K.tell || 0.8)) : 0;
       const hotNow = tell || st === 'lunge' || st === 'attack', pulse = tell ? 0.5 + 0.5 * Math.sin(t * (12 + urg * 26)) : 1;
       rimU.rimC.value.copy(rimBase).lerp(hot, hotNow ? (tell ? 0.45 + 0.55 * urg : 0.8) : 0);
-      rimU.rimK.value = (st === 'stagger' || a.defeated ? 0.3 : isBoss ? 0.75 : 0.6) + (tell ? (0.6 + 1.4 * urg) * pulse : hotNow ? 0.7 : 0) + P.flash * 1.0;
+      rimU.rimK.value = (st === 'stagger' || a.defeated ? 0.3 : isBoss ? 0.75 : SMALL ? 1.0 : 0.6) + (tell ? (0.6 + 1.4 * urg) * pulse : hotNow ? 0.7 : 0) + P.flash * 1.0;
     }
     if (glint) {
       /* in a pack only every other member flares (each glint is a draw call); the pack still reads as eyes */

@@ -706,7 +706,9 @@ function physics(st, inp, lost) {
       c.vx += rotF * fpx + rotL * spx - vpx; c.vy += rotF * fpy + rotL * spy - vpy; c.vz += rotF * fpz + rotL * spz - vpz;
       const vnow = len3(c.vx, c.vy, c.vz);
       const lo = vfBefore * (1 - (DRIFT_SCRUB + 0.3 * (1 - inp.throttle) + 0.9 * inp.brake) * DT);
-      const hi = Math.max(lo, Math.min(vfBefore + 1.5 * inp.throttle * DT, boosting || I.kickT > 0 ? vb : P.top));
+      /* a slide holds its speed; only a boost or the exit kick adds to it (a slide that gained speed ran wide into
+         the outside wall when the player steered back toward the line) */
+      const hi = Math.max(lo, boosting || I.kickT > 0 ? Math.min(vfBefore + 1.5 * inp.throttle * DT, vb) : Math.min(vfBefore, P.top));
       const k2 = vnow > 0.1 ? clamp(vnow, lo, hi) / vnow : 1;
       c.vx *= k2; c.vy *= k2; c.vz *= k2;
     } else {

@@ -285,6 +285,25 @@ for (const b of ['monster', 'race', 'bulldozer']) {
   }
   check('a held drift through a 100 m bend (each class, both ways) stays off the walls, keeps 85 percent speed and banks boost', bad.length === 0, bad.join('; ') || rows.join(', '));
 }
+/* the 14.0 check, kept: a player who kicks in at 0.8 and then steers back toward the line (the autopilot's wheel,
+   which countersteers hard) still holds the slide off the walls and banks boost on exit */
+{
+  const P = params(BASE), { st } = race([{ type: 'straight', len: 120, surf: 'asphalt' }, { type: 'bend', len: 160, angle: 1.6, w: 12, surf: 'asphalt' }, { type: 'straight', len: 600 }], P);
+  S.teleport(st, 90, 0, 30);
+  let v0 = 0, vmin = 1e9, banked = null, drifting = false, spun = false, walls = 0;
+  for (let k = 0; k < HZ * 9 && !banked; k++) {
+    const s = st.car.s, inBend = s > 110 && s < 270;
+    if (inBend && !v0) v0 = st.car.speed;
+    const bot = S.autopilot(st, 1);
+    S.step(st, { throttle: 1, steer: inBend && st.car.drift === 0 ? 0.8 : bot.steer, drift: inBend ? 1 : 0 });
+    for (const e of st.events) { if (e.type === 'driftBank') banked = e; if (e.type === 'drift' && e.on) drifting = true; if (e.type === 'spin') spun = true; if (e.type === 'wall') walls++; }
+    if (inBend) vmin = Math.min(vmin, st.car.speed);
+    st.events.length = 0;
+  }
+  check('a held drift through a bend (steered on the line by the autopilot) banks boost on exit', drifting && banked && banked.bonus > 0 && !spun,
+    banked ? `t ${banked.t.toFixed(2)} s, +${banked.bonus.toFixed(2)}, walls ${walls}` : `no driftBank, walls ${walls}`);
+  check('a drift carries its speed (at least 80 percent)', vmin >= 0.8 * v0, `${v0.toFixed(1)} -> min ${vmin.toFixed(1)} m/s`);
+}
 {
   const pieces = [{ type: 'straight', len: 300, surf: 'asphalt' }, { type: 'ramp', len: 40, rise: 9, lip: 0.6 }, { type: 'gap', len: 140, drop: 20 }, { type: 'straight', len: 400, w: 12 }];
   const P = params(BASE), { st } = race(pieces, P);

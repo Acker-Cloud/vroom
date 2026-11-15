@@ -1026,7 +1026,7 @@ function buildWorld(ctx, track, spec, opts = {}) {
   }
 
   /* gantries: overheads every ~170 m, checkpoint gantries with lamps, the start lights, the finish gate */
-  const lamps = [], startLamps = [], culls = [];
+  const lamps = [], startLamps = [], culls = [], overheads = [];
   {
     const OB = Kit(T), OG = Kit(T), LB = Kit(T);
     OVERS[L.over](OB, OG, A);
@@ -1034,13 +1034,24 @@ function buildWorld(ctx, track, spec, opts = {}) {
     LB.box(0.9, 1, 0.9, '#2c3039', 0, 0.5, 0).box(0.7, 1, 0.7, w === 3 ? '#2a2a34' : '#3a3a40', 0, 0.5, 0);
     LB.box(1.2, 0.08, 1.2, '#f2b705', 0, 0.92, 0);
     const beams = [], legs = [], spots = [];
+    /* never over a flight: a car launched off a ramp or over a gap is still metres up for a long way past the lip
+       (further when the landing drops away), and a crest, a steep hill, a halfpipe, a split or a loop exit throws it up too. A beam there fills the
+       chase camera, so the stretch after one (JUMP_CLEAR / HOP_CLEAR metres) stays open sky */
+    const airAt = new Uint8Array(track.n), JUMP_CLEAR = Math.ceil(230 / track.step), HOP_CLEAR = Math.ceil(120 / track.step);
+    for (let i = 0, jump = -1e9, hop = -1e9; i < track.n; i++) {
+      const p = spec.pieces[track.piece[i]];
+      if (track.flags[i] & (TF.RAMP | TF.GAP)) jump = i;
+      if ((p && (p.type === 'crest' || p.type === 'halfpipe' || p.type === 'split' || (p.type === 'hill' && Math.abs(p.rise || 0) > 0.1 * (p.len || 1)))) || (track.flags[i] & TF.LOOP)) hop = i;
+      if (i - jump <= JUMP_CLEAR || i - hop <= HOP_CLEAR) airAt[i] = 1;
+    }
     const okAt = i => {
-      if (i < 20 || i > track.n - 30) return false;
+      if (i < 20 || i > track.n - 30 || airAt[i]) return false;
       const p = spec.pieces[track.piece[i]];
       if (!p || track.flags[i] & (TF.GAP | TF.COVER | TF.LOOP | TF.RAMP) || (track.hp && track.hp[i] > 0.1) || (track.mid && track.mid[i] > 0.1) || track.uy[i] < 0.93) return false;
       return Math.abs(i * track.step - track.finishS) > 30 && !track.checkpoints.some(c => Math.abs(c - i * track.step) < 30);
     };
-    for (let s = 120; s < track.length - 40; s += 150 + R() * 60) { let i = Math.floor(s / track.step); for (let k = 0; k < 20 && !okAt(i); k++) i++; if (okAt(i)) spots.push(i); }
+    for (let s = 120; s < track.length - 40; s += 150 + R() * 60) { let i = Math.floor(s / track.step); for (let k = 0; k < 60 && !okAt(i); k++) i++; if (okAt(i)) spots.push(i); }
+    for (const i of spots) overheads.push(i * track.step);
     for (const i of spots) {
       const hw = track.hw[i] + 2, yaw = Math.atan2(track.tx[i], track.tz[i]);
       e.set(0, yaw, 0); q.setFromEuler(e);
@@ -1204,7 +1215,7 @@ function buildWorld(ctx, track, spec, opts = {}) {
 
   const camPos = new T.Vector3();
   const rig = {
-    scene, props: propMeshes, stars: starMeshes, sun: key,
+    scene, props: propMeshes, stars: starMeshes, sun: key, overheads, overArch: !!ARCH_OVERS[L.over],
     update(st, dt, t, camera) {
       if (camera) camPos.copy(camera.position);
       skyG.position.copy(camPos);
@@ -1266,7 +1277,7 @@ function buildWorld(ctx, track, spec, opts = {}) {
         }
         if (c.wheels && !c.air) for (let k = 2; k < 4; k++) {
           const wl = c.wheels[k];
-          if (wl.contact && (wl.slip > 0.45 || c.drift)) { fxPos[0] = wl.x; fxPos[1] = wl.y; fxPos[2] = wl.z; fxDir.id = k; fxDir.w = 0.36; fxDir.up[0] = 0; fxDir.up[1] = 1; fxDir.up[2] = 0; fx.emit('skid', fxPos, fxDir); if (smokeT <= 0) { smokeT = 0.08; fxDir.n = 1; fxDir.color = null; fx.emit('smoke', fxPos, fxDir); } }
+          if (wl.contact && (wl.slip > 0.45 || c.drift)) { fxPos[0] = wl.x; fxPos[1] = wl.y; fxPos[2] = wl.z; fxDir.id = k; fxDir.w = 0.36; fxDir.up[0] = 0; fxDir.up[1] = 1; fxDir.up[2] = 0; fx.emit('skid', fxPos, fxDir); if (smokeT <= 0) { smokeT = 0.08; fxDir.n = c.drift ? 2 : 1; fxDir.color = null; fx.emit('smoke', fxPos, fxDir); } }
           else fx.emit('skid', null, { id: k });
         }
         trailT -= dt;

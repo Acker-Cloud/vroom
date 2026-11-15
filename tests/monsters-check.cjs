@@ -7,7 +7,9 @@
    - bosses: enter, attack, never pass the car outside a leap, are defeated at the flag, can be smashed, pay a bonus
    - deterministic: the same level twice gives the same bits, alone and through the real sim.step
    Browser half (Chromium): every kind builds within its draw-call and triangle budget, animates through every
-   state and event, disposes, and the dev zoo and a boss race run with zero console errors and no words. */
+   state and event, disposes; no boss rig reaches through the car at car height (its drawn width fits the sim's
+   side clearance); the chase camera frames a station-keeping boss under the progress rail and clear of the heat
+   bar; and the dev zoo and a boss race run with zero console errors and no words. */
 'use strict';
 const { check, done, loadSim, open, visibleLetters } = require('./lib.cjs');
 const fs = require('fs'), path = require('path');
@@ -246,6 +248,39 @@ check('the sim spawns the packs and boss ammunition (actors beyond the placed mo
     check('rigs stay within budget (creature 12 calls / 5k tris, boss 14 / 14k, debris 4 / 2.5k, overlays included)', big.length === 0, big.map(r => `${r.kind} ${r.calls}c ${r.tris}t`).join(' '));
     check('every rig animates every state and event without throwing', rep.every(r => !r.bad), rep.filter(r => r.bad).map(r => r.kind + ' ' + r.bad).slice(0, 3).join(' | '));
     check('a gone actor is hidden', rep.every(r => r.goneVisible === false), rep.filter(r => r.goneVisible).map(r => r.kind).join(' '));
+    /* a boss is drawn bigger than its contact radius: its drawn reach at car height (above the road, below the
+       roof, at its ride height, through chase, tell, attack and recover) must fit inside the side clearance the
+       sim keeps from the car's centre, less the car's own half width, or a near miss looks like a pass-through */
+    const wide = await page.evaluate(() => {
+      const g = VROOM.game.ctx, AI = VROOM.monsterAI, K = AI.KINDS, rows = [], v = new THREE.Vector3();
+      for (const kind of Object.keys(K)) {
+        const k = K[kind];
+        if (k.arche !== 'boss') continue;
+        const r = VROOM.monsters.build(g, kind), h = k.style === 'fly' ? k.fly - 0.8 : k.style === 'swim' ? k.fly - 0.5 : k.style === 'burrow' ? -k.h * 0.45 : 0;
+        const a = { i: 0, kind, arche: 'boss', s: 0, d: 0, h, x: 0, y: h, z: 0, yaw: 0, vs: 10, vd: 0, vh: 0, state: 'chase', stateT: 0, hp: 3, r: k.r, phase: 0, alive: true, boss: true, hot: false, mark: 0, gy: 0, side: 1 };
+        r.group.position.y = h;
+        let low = 0;
+        for (const s of ['chase', 'tell', 'attack', 'recover']) {
+          a.state = s;
+          for (let f = 0; f < 40; f++) {
+            a.stateT = f * 0.05; a.phase += 0.05; r.update(a, 1 / 60, a.phase);
+            if (f % 8) continue;
+            r.group.updateMatrixWorld(true);
+            r.group.traverse(o => {
+              if (!o.isMesh || !o.visible || o.isInstancedMesh || (o.material && (o.material.transparent || o.material.depthWrite === false))) return;
+              const p = o.geometry.attributes.position.array;
+              for (let i = 0; i < p.length; i += 3) { v.set(p[i], p[i + 1], p[i + 2]).applyMatrix4(o.matrixWorld); if (v.y > 0 && v.y < 2.6) low = Math.max(low, Math.abs(v.x)); }
+            });
+          }
+        }
+        r.dispose();
+        rows.push({ kind, low: +low.toFixed(2), room: +(AI.keepOut(k) - 1.3).toFixed(2) });
+      }
+      return rows;
+    });
+    const sweeps = wide.filter(r => r.low > r.room);
+    check('no boss is drawn through the car: its reach at car height fits the side clearance the sim keeps (less a 1.3 m car half width)',
+      wide.length === 12 && sweeps.length === 0, sweeps.map(r => `${r.kind} ${r.low} > ${r.room}`).join(' '));
     const worst = rep.reduce((m, r) => r.arche === 'boss' ? Math.max(m, r.calls) : m, 0), worstT = rep.reduce((m, r) => Math.max(m, r.tris), 0);
     console.log(`      rigs: ${rep.length} kinds, max boss draw calls ${worst}, max triangles ${worstT}`);
     const still = await page.evaluate(() => {
@@ -278,6 +313,34 @@ check('the sim spawns the packs and boss ammunition (actors beyond the placed mo
         boss: st ? st.actors.filter(a => a.boss).map(a => a.state).join() : '' };
     });
     check('a boss race builds a rig for every actor and runs', rs.id === 'race' && rs.actors > 1 && rs.rigs === rs.actors, JSON.stringify(rs));
+    /* the chase camera frames a station-keeping boss under the HUD: the top of its drawn bounds projects below the
+       progress rail and clear of the boss heat bar (the slag colossus and the glacier golem are the tallest) */
+    const framing = [];
+    for (const n of [10, 50]) {
+      if (n !== 10) { await b.page.evaluate(n => VROOM.game.go('race', { n }), n); await b.page.waitForTimeout(500); }
+      for (let chunk = 0; chunk < 40; chunk++) {
+        const r = await b.page.evaluate(() => {
+          const R = VROOM.scenes.race, st = R.st;
+          for (let f = 0; f < 30; f++) R.update(1 / 60, (window.__mt = (window.__mt || 0) + 1 / 60));
+          const bi = st.actors.findIndex(a => a.boss && a.alive && !a.defeated);
+          if (bi < 0 || st.finished) return null;
+          const rig = R.mons[bi], cam = R.camera;
+          cam.updateMatrixWorld();
+          const top = new THREE.Box3().setFromObject(rig.group).max.y, p = new THREE.Vector3(rig.group.position.x, top, rig.group.position.z).project(cam);
+          const sr = document.getElementById('stage').getBoundingClientRect(), k = sr.width / 1200, rect = id => { const q = document.getElementById(id).getBoundingClientRect(); return { l: (q.left - sr.left) / k, r: (q.right - sr.left) / k, t: (q.top - sr.top) / k, b: (q.bottom - sr.top) / k }; };
+          const x = (p.x + 1) / 2 * 1200, y = (1 - p.y) / 2 * 700, rail = rect('hRail'), bar = rect('hBoss');
+          return { ds: st.actors[bi].s - st.car.s, bias: R.cam.bias, front: p.z < 1, x: Math.round(x), y: Math.round(y), railB: Math.round(rail.b),
+            inBar: x > bar.l && x < bar.r && y > bar.t && y < bar.b };
+        });
+        if (!r) break;
+        if (r.bias > 0.9 && r.front && r.ds >= 12 && r.ds <= 30) framing.push({ n, ...r });
+      }
+    }
+    /* the view only pitches so far (the car stays on screen), so a boss mid-leap or on a rise can top the rail now and then */
+    const under = framing.filter(r => r.y < r.railB), barred = framing.filter(r => r.inBar);
+    check('a station-keeping boss (12 to 30 m ahead) is framed below the progress rail (90 percent of frames) and never behind the heat bar',
+      framing.length >= 20 && under.length <= framing.length * 0.1 && barred.length === 0,
+      `${framing.length} frames, ${under.length} topping the rail, ${barred.length} behind the bar; ` + [...barred, ...under].slice(0, 2).map(r => JSON.stringify(r)).join(' '));
     const allErr = [...errors, ...b.errors];
     check('zero console errors', allErr.length === 0, allErr.slice(0, 3).join(' | '));
     const foreign = [...requests, ...b.requests].filter(u => !/^(http:\/\/127\.0\.0\.1|data:|blob:|about:)/.test(u));

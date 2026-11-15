@@ -40,7 +40,7 @@ function def(kind, world, arche, o) {
   return Object.freeze({
     kind, world, arche, r: 1.2, h: 2, mass: 600, speed: 0, trigger: 38, tell: 0.75, lunge: 14, reach: 9, cooldown: 2.4,
     knock: kn(8, 3, 4, 0.45), bump: kn(4, 1, 1.5, 0.15), off: 3, tries: 2, pack: 1, spread: 4, fly: 0, hop: 0, drift: 0, chase: 0.9,
-    throws: null, style: 'walk', gap: 20, lead: 0, daze: 1.6, mode: null, peak: 0, life: 0, tether: false, ...o,
+    throws: null, style: 'walk', gap: 20, lead: 0, wide: 0, daze: 1.6, mode: null, peak: 0, life: 0, tether: false, ...o,
   });
 }
 
@@ -50,7 +50,7 @@ const add = k => { KINDS[k.kind] = k; };
 /* ---- 1 Scrapyard Foundry ---- */
 add(def('rivetrat', 1, 'swarm', { r: 0.65, h: 0.9, mass: 25, lunge: 11, tell: 0.45, trigger: 34, pack: 6, spread: 3.2, off: 2, knock: kn(3, 1, 2.5, 0.15), cooldown: 1.6, tries: 2 }));
 add(def('magnetmaw', 1, 'lurker', { r: 1.7, h: 3.2, mass: 2600, lunge: 13, reach: 8.5, off: 3.5, tell: 0.8, knock: kn(10, 2, 5.5, 0.55) }));
-add(def('slagcolossus', 1, 'boss', { r: 3.4, h: 9, mass: 40000, speed: 46, tell: 1.0, cooldown: 3.4, hp: 3, gap: 20, knock: kn(13, 5, 5, 0.8), bump: kn(6, 2, 2, 0.25),
+add(def('slagcolossus', 1, 'boss', { r: 3.4, wide: 4.2, h: 9, mass: 40000, speed: 46, tell: 1.0, cooldown: 3.4, hp: 3, gap: 20, knock: kn(13, 5, 5, 0.8), bump: kn(6, 2, 2, 0.25),
   attacks: [atk('throw', 3, 'slagblob', 2), atk('sweep', 2, 'cranehook'), atk('leap', 2), atk('charge', 1)] }));
 add(def('slagblob', 1, 'debris', { r: 1.5, h: 1.2, mass: 900, mode: 'fall', peak: 14, life: 1.1, knock: kn(9, 4, 4, 0.5) }));
 add(def('cranehook', 1, 'debris', { r: 1.4, h: 2.2, mass: 1500, mode: 'sweep', lunge: 15, tell: 0.95, knock: kn(10, 3, 6, 0.55) }));
@@ -58,7 +58,7 @@ add(def('cranehook', 1, 'debris', { r: 1.4, h: 2.2, mass: 1500, mode: 'sweep', l
 /* ---- 2 Ember Canyon ---- */
 add(def('duskvulture', 2, 'diver', { r: 1.3, h: 1.4, mass: 120, fly: 15, speed: 48, trigger: 60, tell: 1.0, tries: 3, cooldown: 1.6, knock: kn(6, 4, 4, 0.35) }));
 add(def('cliffjaw', 2, 'lurker', { r: 1.5, h: 1.6, mass: 900, lunge: 17, reach: 9.5, off: 3, tell: 0.7, knock: kn(9, 2.5, 5, 0.45) }));
-add(def('duskback', 2, 'boss', { r: 3.6, h: 7, mass: 45000, speed: 46, tell: 1.0, cooldown: 3.2, hp: 3, gap: 22, style: 'roll', knock: kn(13, 5, 6, 0.8), bump: kn(6, 2, 2, 0.25),
+add(def('duskback', 2, 'boss', { r: 3.6, wide: 4.4, h: 7, mass: 45000, speed: 46, tell: 1.0, cooldown: 3.2, hp: 3, gap: 22, style: 'roll', knock: kn(13, 5, 6, 0.8), bump: kn(6, 2, 2, 0.25),
   attacks: [atk('roll', 3, 'mesarock', 2), atk('throw', 2, 'emberclod', 2), atk('leap', 2), atk('charge', 2)] }));
 add(def('mesarock', 2, 'debris', { r: 1.6, h: 3.2, mass: 3000, mode: 'roll', speed: 13, tell: 0.6, knock: kn(10, 4, 5, 0.55) }));
 add(def('emberclod', 2, 'debris', { r: 1.3, h: 1.4, mass: 600, mode: 'fall', peak: 12, life: 1.0, knock: kn(8, 4, 4, 0.45) }));
@@ -83,7 +83,7 @@ add(def('bilgewave', 4, 'debris', { r: 1.8, h: 2.0, mass: 1000, mode: 'sweep', l
 add(def('icewolf', 5, 'roamer', { r: 1.0, h: 1.4, mass: 260, speed: 28, trigger: 70, tell: 0.4, lunge: 10, pack: 3, spread: 7, cooldown: 1.4, knock: kn(6, 2, 4.5, 0.35) }));
 add(def('snowbrute', 5, 'lurker', { r: 1.8, h: 3.6, mass: 2800, off: 4, tell: 0.85, cooldown: 2.2, tries: 3, throws: 'snowball', knock: kn(10, 3, 4, 0.5) }));
 add(def('snowball', 5, 'debris', { r: 1.5, h: 3.0, mass: 900, mode: 'sweep', lunge: 13, tell: 0.0, knock: kn(8, 3, 4, 0.45) }));
-add(def('glaciergolem', 5, 'boss', { r: 3.6, h: 9, mass: 50000, speed: 45, tell: 1.05, cooldown: 3.3, hp: 3, gap: 21, knock: kn(13, 5, 5, 0.8), bump: kn(6, 2, 2, 0.25),
+add(def('glaciergolem', 5, 'boss', { r: 3.6, wide: 4.9, h: 9, mass: 50000, speed: 45, tell: 1.05, cooldown: 3.3, hp: 3, gap: 21, knock: kn(13, 5, 5, 0.8), bump: kn(6, 2, 2, 0.25),
   attacks: [atk('roll', 3, 'avalanche', 2), atk('throw', 2, 'icespear', 3), atk('leap', 2), atk('charge', 1)] }));
 add(def('avalanche', 5, 'debris', { r: 1.9, h: 3.8, mass: 3000, mode: 'roll', speed: 12, tell: 0.6, knock: kn(10, 4, 5, 0.55) }));
 add(def('icespear', 5, 'debris', { r: 1.0, h: 3.0, mass: 400, mode: 'fall', peak: 16, life: 1.0, knock: kn(8, 4, 5, 0.45) }));
@@ -91,7 +91,7 @@ add(def('icespear', 5, 'debris', { r: 1.0, h: 3.0, mass: 400, mode: 'fall', peak
 /* ---- 6 Scorch Flats ---- */
 add(def('sandshark', 6, 'burrower', { r: 1.4, h: 2.4, mass: 1100, speed: 10, trigger: 40, tell: 0.6, chase: 1.1, tries: 3, knock: kn(9, 5, 5, 0.5) }));
 add(def('stingtail', 6, 'lurker', { r: 1.6, h: 2.2, mass: 1300, lunge: 15, reach: 9, off: 3, tell: 0.8, knock: kn(9, 3, 6, 0.5) }));
-add(def('gritmaw', 6, 'boss', { r: 3.2, h: 8, mass: 42000, speed: 47, tell: 1.0, cooldown: 3.1, hp: 3, gap: 20, style: 'burrow', knock: kn(12, 7, 5, 0.8), bump: kn(6, 2, 2, 0.25),
+add(def('gritmaw', 6, 'boss', { r: 3.2, wide: 5.9, h: 8, mass: 42000, speed: 47, tell: 1.0, cooldown: 3.1, hp: 3, gap: 20, style: 'burrow', knock: kn(12, 7, 5, 0.8), bump: kn(6, 2, 2, 0.25),
   attacks: [atk('erupt', 3, 'sandspout', 2), atk('throw', 2, 'gritclod', 2), atk('leap', 3), atk('charge', 1)] }));
 add(def('sandspout', 6, 'debris', { r: 1.6, h: 5, mass: 800, mode: 'erupt', tell: 0.9, life: 0.7, knock: kn(8, 7, 4, 0.5) }));
 add(def('gritclod', 6, 'debris', { r: 1.3, h: 1.3, mass: 600, mode: 'fall', peak: 12, life: 1.0, knock: kn(8, 4, 4, 0.45) }));
@@ -99,7 +99,7 @@ add(def('gritclod', 6, 'debris', { r: 1.3, h: 1.3, mass: 600, mode: 'fall', peak
 /* ---- 7 Wreck Cove ---- */
 add(def('hermittank', 7, 'lurker', { r: 1.6, h: 1.8, mass: 1800, lunge: 10, reach: 10.5, off: 3, tell: 0.85, cooldown: 2.0, tries: 3, knock: kn(9, 2, 5, 0.45) }));
 add(def('gullswarm', 7, 'diver', { r: 0.9, h: 1.0, mass: 30, fly: 13, speed: 50, trigger: 56, tell: 0.85, pack: 3, spread: 9, tries: 2, cooldown: 1.2, knock: kn(4, 2, 3, 0.2) }));
-add(def('tidecrusher', 7, 'boss', { r: 3.8, h: 7, mass: 52000, speed: 45, tell: 1.0, cooldown: 3.2, hp: 3, gap: 21, knock: kn(13, 4, 6, 0.8), bump: kn(6, 2, 2, 0.25),
+add(def('tidecrusher', 7, 'boss', { r: 3.8, wide: 7.6, h: 7, mass: 52000, speed: 45, tell: 1.0, cooldown: 3.2, hp: 3, gap: 21, knock: kn(13, 4, 6, 0.8), bump: kn(6, 2, 2, 0.25),
   attacks: [atk('sweep', 3, 'clawsweep'), atk('throw', 2, 'hulkchunk', 2), atk('leap', 2), atk('charge', 2)] }));
 add(def('clawsweep', 7, 'debris', { r: 2.0, h: 2.6, mass: 4000, mode: 'sweep', lunge: 15, tell: 0.95, knock: kn(11, 3, 6, 0.6) }));
 add(def('hulkchunk', 7, 'debris', { r: 1.6, h: 1.8, mass: 2000, mode: 'fall', peak: 14, life: 1.1, knock: kn(9, 4, 4, 0.5) }));
@@ -569,7 +569,12 @@ const END_RUN = 150;          /* over the last metres before the flag the boss i
 /* the chase. The boss keeps station AHEAD of the car (14 to 30 m, inside the chase camera's frame), off the
    car's line; `along` brings it level with the car beside the road instead (a charge's wind-up). Behind or level
    with the car it runs up beside the road, and a body never overlaps the car: within 12 m along the road it is
-   held at least r + 2 m to the side. Near the flag it is outrun: it drops back beside the road and loses. */
+   held at least keepOut(K) to the side. Near the flag it is outrun: it drops back beside the road and loses. */
+/* the side clearance a boss keeps from the car's centre: r + 2 m, or more for a boss whose drawn reach below
+   roof height (K.wide, its arms or jaws) is wider than its contact radius, so the drawing never sweeps through
+   the car either (CAR_SIDE: the widest machine's half width plus a hand). monsters-check measures every rig. */
+const CAR_SIDE = 1.4;
+const keepOut = K => Math.max(K.r + 2, K.wide + CAR_SIDE);
 function chaseMove(a, K, ctx, v, hw, along) {
   const car = ctx.car, dt = ctx.dt, fin = finishS(ctx.track);
   const end = clamp((car.s - (fin - END_RUN)) / END_RUN, 0, 1);
@@ -582,12 +587,12 @@ function chaseMove(a, K, ctx, v, hw, along) {
   const out = a.side * (hw + K.r * 0.95), ahead = a.s > car.s + K.r + 4;
   let want = out;
   if (ahead && !along && end === 0 && !K.lead) {
-    want = clamp(car.d + a.side * (K.r + 2), -hw - K.r * 0.6, hw + K.r * 0.6);
+    want = clamp(car.d + a.side * keepOut(K), -hw - K.r * 0.6, hw + K.r * 0.6);
     if (Math.abs(want - car.d) < K.r + 1.5 && a.s > car.s + 14) a.side = -a.side;
   }
   a.vd = clamp((want - a.d) * 1.8, -8, 8);
   a.d += a.vd * dt;
-  const ds = a.s - car.s, dd = a.d - car.d, keep = K.r + 2;
+  const ds = a.s - car.s, dd = a.d - car.d, keep = keepOut(K);
   if (ds > -12 && ds < 12 && Math.abs(dd) < keep) a.d = car.d + (dd >= 0 ? keep : -keep);
   a.surgeT = Math.abs(a.d) > hw + K.r * 0.5 && Math.abs(ds) < 12 ? 1 : Math.max(0, a.surgeT - dt);
   a.h += (restH(a, K) - a.h) * Math.min(1, 3 * dt);
@@ -769,4 +774,4 @@ function active(a) { return !!(a && a.alive && a.hot && a.state !== 'gone'); }
 /* bonus stars the bosses of a finished race paid: 3 smashed, 2 outrun untouched, 1 outrun */
 function bonus(actors) { let b = 0; for (const a of actors || []) if (a.boss) b += a.bonus || 0; return b; }
 
-VROOM.monsterAI = { KINDS, spawn, think, onHit, active, bonus };
+VROOM.monsterAI = { KINDS, spawn, think, onHit, active, bonus, keepOut, CAR_SIDE };

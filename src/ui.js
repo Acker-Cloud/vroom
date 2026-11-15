@@ -834,8 +834,9 @@ function homeRev() {
 /* ---- attract mode: after 20 s with no input on home, the autopilot races a level of the world of the day
    behind the menu, cut like a demo reel (chase, side, trackside, crane, head-on). Any input returns to the
    podium and is swallowed, so the press that wakes the screen never fires a plate. ?attract cuts the wait to 1 s.
-   Reduced motion: one steady chase camera, no cuts. ---- */
-const ATTRACT_IDLE = 20, SHOT_S = 4.2;
+   Reduced motion: it never starts (an idle demo is decoration). ---- */
+/* PREP_S: the demo's world is built (and its shaders compiled) this long before it shows, so the cut-in is smooth */
+const ATTRACT_IDLE = 20, SHOT_S = 4.2, PREP_S = 6;
 const ATT = { on: false, idle: 0, last: 0, woke: -1e9, run: 0, n: 0, st: null, track: null, world: null, car: null, mons: [], cam: null, acc: 0, doneT: 0,
   shot: 0, shotT: 0, snap: true, side: 1, plant: null, prev: null, prevA: [], fr: {}, K: null, mx: -1, my: -1 };
 const SHOTS = ['chase', 'side', 'trackside', 'crane', 'front'];
@@ -869,7 +870,10 @@ function attractBuild() {
   /* the menu holds the left of the screen: the lens is shifted so the action sits right of centre */
   ATT.cam.setViewOffset(C.STAGE_W, C.STAGE_H, -C.STAGE_W * 0.16, 0, C.STAGE_W, C.STAGE_H);
   attractSavePrev();
-  attractCut(reduced() ? 0 : ATT.run % 2 ? 4 : 0);
+  attractCut(ATT.run % 2 ? 4 : 0);
+  /* warm the programs now (while the podium sits idle), not on the first frame shown: a cold compile held the main
+     thread for seconds. Synchronous on purpose: compileAsync polls programs a wake may already have disposed */
+  guard('attractCompile', () => ctx.renderer.compile(world.scene, ATT.cam));
 }
 function attractSavePrev() {
   const c = ATT.st.car, p = ATT.prev, A = ATT.st.actors;
@@ -884,17 +888,25 @@ function attractCut(i) {
     ATT.plant = new game.ctx.THREE.Vector3(f.x + f.rx * off * ATT.side + f.ux * 2.2, f.y + f.ry * off * ATT.side + f.uy * 2.2, f.z + f.rz * off * ATT.side + f.uz * 2.2);
   }
 }
+/* the idle demo is pure decoration: under reduced motion it never starts (the podium stays still) */
 function attractStart() {
-  if (ATT.on || !game || game.current() !== 'home' || !game.ctx || !game.ctx.renderer) return false;
-  ATT.run = 0;
-  if (!guard('attract', () => { attractBuild(); return true; }, false)) { attractClear(); return false; }
+  if (ATT.on || reduced() || !game || game.current() !== 'home' || !game.ctx || !game.ctx.renderer) return false;
+  if (!attractPrep()) return false;
+  ATT.shotT = performance.now(); ATT.snap = true;
   ATT.on = true;
   $('home').classList.add('attract');
   return true;
 }
+/* build the demo's first run ahead of showing it (a no-op once built) */
+function attractPrep() {
+  if (ATT.st) return true;
+  ATT.run = 0;
+  if (!guard('attract', () => { attractBuild(); return true; }, false)) { attractClear(); return false; }
+  return true;
+}
 function attractStop() {
   ATT.idle = 0; ATT.last = performance.now();
-  if (!ATT.on) return false;
+  if (!ATT.on) { if (ATT.st) attractClear(); return false; }
   ATT.on = false;
   attractClear();
   const h = $('home'); if (h) h.classList.remove('attract');
@@ -945,7 +957,8 @@ function attractCamera(dt, t) {
   if (sh === 'chase') { at(-9 - Math.min(3, Math.abs(c.speed) * 0.05), sway * 1.2, 2.6); fov = 56; }
   else if (sh === 'side') { at(1.5 + sway, 10 * ATT.side, 1.8); fov = 46; lead = 2; }
   else if (sh === 'trackside' && ATT.plant) { K.want.copy(ATT.plant); fov = clamp(14 + 600 / Math.max(10, K.want.distanceTo(pos)), 18, 52); lead = 0; }
-  else if (sh === 'crane') { const h = Math.min(SHOT_S, (performance.now() - ATT.shotT) / 1000); at(-5 + h * 2, 4 * ATT.side, 13 - h); fov = 48; }
+  /* the crane rides high behind and off to the side, never straight over the car (that put it under the menu) */
+  else if (sh === 'crane') { const h = Math.min(SHOT_S, (performance.now() - ATT.shotT) / 1000); at(-16 + h * 1.5, 7 * ATT.side, 15 - h * 0.8); fov = 50; lead = 8; }
   else { at(12 + sway, 2.5 * ATT.side, 1.3); fov = 46; lead = -6; }
   K.wlook.set(pos.x + f.tx * lead + up.x * 0.9, pos.y + f.ty * lead + up.y * 0.9, pos.z + f.tz * lead + up.z * 0.9);
   const kp = ATT.snap ? 1 : 1 - Math.exp(-dt * (sh === 'trackside' ? 50 : 6));
@@ -986,7 +999,9 @@ function attractTick(dt, t) {
   const ovl = $('ovl'), busy = (ovl && ovl.classList.contains('open')) || document.hidden;
   if (busy) { attractStop(); return; }
   ATT.idle = (now - ATT.last) / 1000;
-  if (!ATT.on && ATT.idle >= (params.has('attract') ? 1 : ATTRACT_IDLE)) attractStart();
+  const at = params.has('attract') ? 1 : ATTRACT_IDLE;
+  if (!ATT.on && !ATT.st && !reduced() && ATT.idle >= at - PREP_S) attractPrep();
+  if (!ATT.on && ATT.idle >= at) attractStart();
   if (ATT.on && !guard('attractStep', () => { attractStep(dt, t); return true; }, false)) attractStop();
 }
 VROOM.scenes.home = {
@@ -1377,5 +1392,12 @@ function init(g) {
 
 const attract = { start: attractStart, stop: attractStop, on: () => ATT.on, idle: () => ATT.idle, IDLE: ATTRACT_IDLE,
   _state: () => ATT.st,
-  probe: () => ({ on: ATT.on, n: ATT.n, shot: SHOTS[ATT.shot], t: ATT.st ? ATT.st.t : 0, s: ATT.st ? ATT.st.car.s : 0, run: ATT.run }) };
+  probe: () => ({ on: ATT.on, n: ATT.n, shot: SHOTS[ATT.shot], t: ATT.st ? ATT.st.t : 0, s: ATT.st ? ATT.st.car.s : 0, run: ATT.run, x: attractCarX() }) };
+/* where the demo car sits across the stage (stage px, through the shifted lens): the menu holds x < 500 */
+function attractCarX() {
+  if (!ATT.on || !ATT.car || !ATT.cam) return -1;
+  ATT.cam.updateMatrixWorld();
+  const v = ATT.K.tmp.copy(ATT.car.group.position).project(ATT.cam);
+  return v.z > 1 ? -1 : Math.round((v.x + 1) / 2 * C.STAGE_W);
+}
 VROOM.ui = { init, hud, controls, button, toast, transition, icons, medalSvg, badgeSvg, avatarSvg, skullSvg, fmtTime, setAccent, worldOfDay, attract, paused: () => paused, counting: () => !!countdown };

@@ -105,6 +105,10 @@ function sfxFor(ev, st) {
   }
 }
 const V3 = () => new THREE.Vector3();
+/* the boss framing: the top of a boss is held at or below this height on screen (NDC y; the stage y of 0.5 is
+   175 px, under the progress rail), pitching the view up by at most HEAD_LIFT radians to get it there, and never
+   so far that the car drops below NDC y -CAR_NDC (stage y 560, clear of the bottom edge) */
+const HEAD_NDC = 0.5, HEAD_LIFT = 0.26, CAR_NDC = 0.6;
 const race = {
   id: 'race', dom: 'race', view: null,
   enter({ n = VROOM.save.progress.current } = {}) {
@@ -119,7 +123,8 @@ const race = {
     Object.assign(this, { n, spec, track, st, world, car, mons, camera, acc: 0, inputs: [], doneT: 0, hitStop: 0, shake: 0, maxAir: 0, maxDrift: 0,
       bot: params.get('bot') === '1', key: buildKey(), ghost: null,
       prev: { x: 0, y: 0, z: 0, q: new THREE.Quaternion() }, prevA: st.actors.map(a => [a.x, a.y, a.z, a.yaw]),
-      cam: { fwd: V3(), up: new THREE.Vector3(0, 1, 0), pos: V3(), look: V3(), fov: 62, want: V3(), tmp: V3(), upW: V3(), target: V3(), bias: 0 },
+      cam: { fwd: V3(), up: new THREE.Vector3(0, 1, 0), pos: V3(), look: V3(), fov: 62, want: V3(), tmp: V3(), upW: V3(), target: V3(), bias: 0,
+        lift: 0, box: new THREE.Box3(), right: V3(), camUp: V3(), head: V3() },
       lastInput: null, tmpQ: new THREE.Quaternion(), frame: {} });
     this.savePrev();
     this.ghost = this.makeGhost(P);
@@ -249,10 +254,26 @@ const race = {
     }
     if (bi >= 0 && bd < 48) bossW = bd < 36 ? 1 : (48 - bd) / 12;
     K.bias += (bossW - K.bias) * (snap ? 1 : 1 - Math.exp(-dt * 2.5));
+    /* 14.1 review: the pull aims at the boss's upper body, and the view pitches up (at most HEAD_LIFT) until the
+       top of the boss sits below the progress rail, so a 13 m colossus keeping station ahead is framed under the
+       HUD rather than behind it. The car drops a little lower in the frame while that holds, never below CAR_NDC. */
+    let lift = 0, room = HEAD_LIFT;
     if (bi >= 0 && K.bias > 0.01) {
-      const bp = this.mons[bi].group.position;
-      K.tmp.copy(bp).addScaledVector(K.up, 2.5);
+      const rig = this.mons[bi], bp = rig.group.position;
+      const top = K.box.setFromObject(rig.group).max.y, bh = Math.max(2, top - bp.y);
+      K.tmp.copy(bp).addScaledVector(K.up, bh * 0.45);
       K.look.lerp(K.tmp, 0.22 * K.bias);
+      const f = K.tmp.copy(K.look).sub(K.pos).normalize(), right = K.right.crossVectors(f, K.up).normalize(), cu = K.camUp.crossVectors(right, f);
+      const tanHalf = Math.tan(K.fov * Math.PI / 360), cv = K.head.copy(pos).sub(K.pos);
+      room = Math.max(0, Math.atan2(cv.dot(cu), Math.max(1, cv.dot(f))) + Math.atan(CAR_NDC * tanHalf));
+      const h = K.head.set(bp.x, top, bp.z).sub(K.pos), z = h.dot(f);
+      if (z > 1) lift = clamp(Math.atan2(h.dot(cu), z) - Math.atan(HEAD_NDC * tanHalf), 0, Math.min(HEAD_LIFT, room)) * K.bias;
+    }
+    K.lift += (lift - K.lift) * (snap ? 1 : 1 - Math.exp(-dt * 6));
+    K.lift = Math.min(K.lift, room);
+    if (K.lift > 0.001) {
+      const f = K.tmp.copy(K.look).sub(K.pos), d = f.length(), right = K.right.crossVectors(f, K.up).normalize();
+      K.look.copy(K.pos).addScaledVector(f.applyAxisAngle(right, K.lift).normalize(), d);
     }
     cam.position.copy(K.pos);
     if (this.shake > 0 && !reducedMotion) {

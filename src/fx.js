@@ -6,9 +6,9 @@
    trail: a boss's wake, opts.color the hot embers (soot billows behind them).
 
    Three pools, all allocated up front (no allocation per frame or per emit):
-     chunk  low-poly icosahedrons, lit and flat shaded: debris, splash, the odd clod of snow
+     chunk  low-poly icosahedrons, lit and flat shaded: debris, the odd clod of snow
      puff   soft camera-facing billboards: a quad per particle, turned to the camera in the vertex shader,
-            a painted puff with an alpha falloff, faded in and out per particle, fogged: dust, smoke, powder snow
+            a painted puff with an alpha falloff, faded in and out per particle, fogged: dust, smoke, powder snow, spray
      glow   octahedrons, unlit and additive: sparks (stretched along their velocity), fire, nitro, stars, shards
      skid   a ring buffer of quads with per-vertex alpha that fade out
    Capacity follows ctx.quality. Under ctx.reducedMotion every burst is halved and shortened, and the
@@ -136,9 +136,10 @@ function create(ctx, scene) {
       const c = greyed(o.color, '#7a6a58'), n = count(o, 6), big = o.big ? 2 : 1, d = o.dir;
       for (let k = 0; k < n; k++) { sphere(1.5 + rnd() * 2.5 * big, 0.6); spawn(P.puff, x + (rnd() - 0.5) * big, y + 0.3, z + (rnd() - 0.5) * big, v.x + (d ? d[0] * 3 : 0), v.y * 0.5 + 0.8, v.z + (d ? d[2] * 3 : 0), 0.7 + rnd() * 0.6, 0.35 * big, (0.9 + rnd() * 0.5) * big, -0.4, 2.6, c, 0, (rnd() - 0.5) * 1.6, 0.55); }
     },
+    /* tyre smoke: a warm grey the world's light and fog tint, light enough to read against a night road */
     smoke(x, y, z, o) {
-      const c = greyed(o.color, '#3a3a40'), n = count(o, 5);
-      for (let k = 0; k < n; k++) { sphere(1 + rnd() * 1.5, 1); spawn(P.puff, x, y + 0.2, z, v.x, 1.2 + rnd() * 1.6, v.z, 0.9 + rnd() * 0.8, 0.4, 1.8 + rnd() * 0.9, -1.0, 1.4, c, 0, (rnd() - 0.5) * 1.2, 0.6); }
+      const c = greyed(o.color, '#8a8078'), n = count(o, 5);
+      for (let k = 0; k < n; k++) { sphere(1 + rnd() * 1.5, 1); spawn(P.puff, x, y + 0.2, z, v.x, 1.2 + rnd() * 1.6, v.z, 0.9 + rnd() * 0.8, 0.4, 1.8 + rnd() * 0.9, -1.0, 1.4, c, 0, (rnd() - 0.5) * 1.2, 0.5); }
     },
     fire(x, y, z, o) {
       const n = count(o, 8);
@@ -157,9 +158,10 @@ function create(ctx, scene) {
       KINDS.sparks(x, y, z, { n: 18 * big, speed: 1.4 });
       KINDS.debris(x, y, z, { n: 8, color: '#2c3039' });
     },
+    /* spray: soft billboards thrown up and falling back (lit chunks read as white rocks), chunks are for debris */
     splash(x, y, z, o) {
       const c = parse(o.color, '#cfefff'), n = count(o, 16);
-      for (let k = 0; k < n; k++) { sphere(4 + rnd() * 4, 0.9); spawn(P.chunk, x, y + 0.2, z, v.x * 0.8, v.y + 3, v.z * 0.8, 0.6 + rnd() * 0.5, 0.25, 0.08, 18, 0.6, c); }
+      for (let k = 0; k < n; k++) { sphere(4 + rnd() * 4, 0.9); spawn(P.puff, x, y + 0.2, z, v.x * 0.8, v.y + 3, v.z * 0.8, 0.5 + rnd() * 0.4, 0.3, 1.0 + rnd() * 0.5, 12, 0.8, c, 0, (rnd() - 0.5) * 1.6, 0.7); }
     },
     debris(x, y, z, o) {
       const c = parse(o.color, '#8a3b12'), n = count(o, 10);

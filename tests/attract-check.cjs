@@ -1,7 +1,8 @@
 /* attract-check: the home screen's attract mode. After 20 s with no input on home, the autopilot races a level
    of the world of the day behind the menu (the menu plates stay up, no words, targets >= 64 px); the camera cuts
    between shots; a key or a press returns to the podium and the waking press fires nothing; an open overlay or
-   leaving home stops it; reduced motion keeps one steady shot; finishing a run rolls on to the next level.
+   leaving home stops it; every shot keeps the car right of the menu; reduced motion never starts it; finishing
+   a run rolls on to the next level.
    Owner: ui. */
 'use strict';
 const { check, done, open, visibleLetters, smallTargets } = require('./lib.cjs');
@@ -46,8 +47,8 @@ const waitOn = (page, on, timeout = 30000) => page.waitForFunction(v => VROOM.ui
     check('a key returns to the podium (scene stays home)', !k.on && k.scene === 'home' && !k.cls && k.idle < 1, JSON.stringify(k));
 
     /* a press on GO while the demo runs only wakes the screen */
-    await page.evaluate(() => VROOM.ui.attract.start());
-    check('attract can be started on demand', await waitOn(page, true, 5000));
+    const started = await page.evaluate(() => VROOM.ui.attract.start() && VROOM.ui.attract.on());
+    check('attract can be started on demand', started && await waitOn(page, true));
     const r = await page.evaluate(() => document.getElementById('homeGo').getBoundingClientRect().toJSON());
     await page.mouse.click(r.x + r.width / 2, r.y + r.height / 2);
     await page.waitForTimeout(800);
@@ -63,9 +64,10 @@ const waitOn = (page, on, timeout = 30000) => page.waitForFunction(v => VROOM.ui
   {
     const { browser, page, errors } = await open('nosplash&attract');
     check('?attract starts the demo after a second', await waitOn(page, true, 10000));
-    const shots = new Set();
-    for (let i = 0; i < 24; i++) { shots.add((await probe(page)).shot); await page.waitForTimeout(500); }
+    const shots = new Set(), offLeft = [];
+    for (let i = 0; i < 24; i++) { const p = await probe(page); shots.add(p.shot); if (p.x >= 0 && p.x < 540) offLeft.push(p.shot + ':' + p.x); await page.waitForTimeout(500); }
     check('the camera cuts between at least three shots in 12 s', shots.size >= 3, [...shots].join(' '));
+    check('every shot keeps the demo car in the right 55 percent of the stage, clear of the menu', offLeft.length === 0, offLeft.join(' '));
     await page.screenshot({ path: require('path').join(__dirname, '..', 'preview', 'shots', 'r2-ui', 'attract-cut.png') }).catch(() => {});
     /* a finished demo run rolls on to the next level (the finale on odd runs) */
     const n0 = (await probe(page)).n;
@@ -98,13 +100,13 @@ const waitOn = (page, on, timeout = 30000) => page.waitForFunction(v => VROOM.ui
     await browser.close();
   }
 
-  /* ---- reduced motion: one steady chase shot ---- */
+  /* ---- reduced motion: the idle demo is decoration, so it never starts ---- */
   {
     const { browser, page, errors } = await open('nosplash&attract', { reducedMotion: 'reduce' });
-    await waitOn(page, true, 10000);
-    const shots = new Set();
-    for (let i = 0; i < 14; i++) { shots.add((await probe(page)).shot); await page.waitForTimeout(500); }
-    check('reduced motion: the demo holds one chase shot (no cuts)', shots.size === 1 && shots.has('chase'), [...shots].join(' '));
+    const came = await waitOn(page, true, 8000);
+    const forced = await page.evaluate(() => VROOM.ui.attract.start());
+    const rm = await page.evaluate(() => ({ on: VROOM.ui.attract.on(), idle: VROOM.ui.attract.idle(), st: !!VROOM.ui.attract._state() }));
+    check('reduced motion: no demo after the idle threshold (?attract), not even on demand', !came && !forced && !rm.on && !rm.st && rm.idle > 5, JSON.stringify(rm));
     check('no console errors (reduced motion)', errors.length === 0, errors.join(' | '));
     await browser.close();
   }
