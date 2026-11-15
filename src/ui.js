@@ -73,12 +73,20 @@ function cog(r1 = 26, r2 = 19, teeth = 8) {
 }
 const CAR_D = 'M6 40 L10 28 L22 26 L28 16 H44 L50 26 L58 28 V40 Z';
 const carSvg = (f = '#ff5a1a') => sv(P(CAR_D, f) + Ci(18, 44, 9, '#2a2d34') + Ci(46, 44, 9, '#2a2d34') + Ci(18, 44, 3, '#9aa3b0') + Ci(46, 44, 3, '#9aa3b0') + P('M31 20 H42 L45 26 H31 Z', '#8fd8ff'));
-const skullSvg = (eye = 'var(--acc2)', crossed = false) => sv(
+const skullBody = (eye = 'var(--acc2)', crossed = false) => (
   P('M14 28 C4 20 4 8 10 2 C12 12 16 18 24 20 Z', '#d9dee6') + P('M50 28 C60 20 60 8 54 2 C52 12 48 18 40 20 Z', '#d9dee6')
   + P('M32 12 C46 12 54 22 54 34 C54 41 50 45 46 47 V57 H18 V47 C14 45 10 41 10 34 C10 22 18 12 32 12 Z', '#e6e9ef')
   + '<path d="M17 31 L28 29 L28 39 L20 39 Z M47 31 L36 29 L36 39 L44 39 Z" style="fill:' + eye + '" stroke="' + K + '" stroke-width="3" stroke-linejoin="round"/>'
   + P('M32 40 L35 46 H29 Z', K) + Ln('M24 51 V57 M32 51 V57 M40 51 V57', K, 3)
   + (crossed ? LL('M6 8 L58 58 M58 8 L6 58', '#d8322a', 6) : ''));
+const skullSvg = (eye, crossed) => sv(skullBody(eye, crossed));
+/* rail markers: you are a chrome arrowhead with a molten spine, your best run a steel twin, the boss a skull on a rusted plate */
+const ARROW_D = 'M3 13 L61 32 L3 51 L15 32 Z';
+const markSvg = ghost => sv((ghost ? P(ARROW_D, '#6b727e') + Ln('M15 32 H44', '#c7ccd5', 3)
+  : '<defs><linearGradient id="mkChrome" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".42" stop-color="#b7bec9"/><stop offset=".5" stop-color="#3a3f48"/><stop offset=".62" stop-color="#6b727e"/><stop offset="1" stop-color="#e3e7ee"/></linearGradient></defs>'
+    + P(ARROW_D, 'url(#mkChrome)') + LL('M17 32 H46', '#ff5a1a', 4) + Ci(40, 32, 2.5, '#ffb02e')));
+const bossMarkSvg = () => sv(P('M32 2 L58 17 V47 L32 62 L6 47 V17 Z', '#8a3b12') + P('M32 8 L53 20 V44 L32 56 L11 44 V20 Z', '#2c3039')
+  + Ci(32, 6, 2, '#c7ccd5') + Ci(32, 58, 2, '#c7ccd5') + '<g transform="translate(14 13) scale(.56)">' + skullBody('#ff5a1a') + '</g>');
 const icons = {
   go: sv(P('M16 7 L57 32 L16 57 L24 32 Z', '#f4f6fa')),
   next: sv(P('M6 12 L29 32 L6 52 Z', INK) + P('M32 12 L57 32 L32 52 Z', INK)),
@@ -129,6 +137,9 @@ const icons = {
   plus: sv(LL('M32 10 V54 M10 32 H54', '#8cff3a', 9)),
   car: carSvg(),
   ghost: carSvg('#c7ccd5'),
+  marker: markSvg(false),
+  markerGhost: markSvg(true),
+  markerBoss: bossMarkSvg(),
   bolt: sv(Ci(32, 32, 26, '#6b727e') + P('M32 12 L49 22 V42 L32 52 L15 42 V22 Z', '#c7ccd5')),
   wallet: starSvg(true),
   album: sv(P('M8 6 H50 L56 12 V58 H8 Z', '#6b727e') + P('M14 12 H50 V52 H14 Z', '#2c3039') + Ci(32, 30, 11, '#ffd02e') + P('M24 40 L22 52 L32 47 L42 52 L40 40 Z', '#d8322a')),
@@ -247,21 +258,21 @@ const keys = new Set();
 const touch = { gas: 0, brake: 0, boost: 0, drift: 0, steer: 0, btn: 0 };
 let kSteer = 0, tiltZero = null, tiltRaw = 0, padPausePrev = false;
 const KEYMAP = { arrowleft: 1, arrowright: 1, arrowup: 1, arrowdown: 1, ' ': 1 };
-/* the touch plates fade back once a keyboard or a gamepad drives, so they never hide the right roadside;
-   the next touch brings them back */
+/* the touch plates only show on a touch device: a coarse primary pointer at boot, or the first real touch.
+   Keyboard and gamepad drivers get a clean screen; a touch brings the plates back */
 const DRIVE_KEYS = new Set(['arrowleft', 'arrowright', 'arrowup', 'arrowdown', ' ', 'a', 'd', 'w', 's', 'shift', 'x']);
-let ctlDim = false;
-function dimControls(on) {
-  if (ctlDim === on) return;
-  ctlDim = on;
+let touchUI = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+function touchPlates(on) {
+  if (touchUI === on) return;
+  touchUI = on;
   const c = document.getElementById('ctl');
-  if (c) c.classList.toggle('dim', on);
+  if (c) c.classList.toggle('off', !on);
 }
-addEventListener('pointerdown', () => dimControls(false), true);
+addEventListener('pointerdown', e => { if (e.pointerType === 'touch' || e.pointerType === 'pen') touchPlates(true); }, true);
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   keys.add(k);
-  if (DRIVE_KEYS.has(k) && game && game.current() === 'race') dimControls(true);
+  if (DRIVE_KEYS.has(k) && game && game.current() === 'race') touchPlates(false);
   if (KEYMAP[k] && game && game.current() === 'race') e.preventDefault();
   if ((k === 'escape' || k === 'p') && game && game.current() === 'race' && !e.repeat) togglePause();
 });
@@ -284,7 +295,7 @@ function readPad() {
     const start = b(9) > 0.5;
     if (start && !padPausePrev && game && game.current() === 'race') setTimeout(togglePause, 0);
     padPausePrev = start;
-    if (!ctlDim && (Math.abs(ax) > 0.3 || b(7) > 0.2 || b(6) > 0.2 || b(0) > 0.5 || b(1) > 0.5)) dimControls(true);
+    if (touchUI && (Math.abs(ax) > 0.3 || b(7) > 0.2 || b(6) > 0.2 || b(0) > 0.5 || b(1) > 0.5)) touchPlates(false);
     return { steer: Math.abs(ax) < 0.12 ? 0 : ax, throttle: Math.max(b(7), (g.axes[1] || 0) < -0.5 ? 1 : 0), brake: b(6), boost: b(0) > 0.5 || b(5) > 0.5 ? 1 : 0, drift: b(1) > 0.5 || b(2) > 0.5 || b(4) > 0.5 ? 1 : 0 };
   }
   return null;
@@ -315,7 +326,7 @@ const controls = {
     if (!hud) return;
     const old = $('ctl'); if (old) old.remove();
     const box = el('div', '', '', ''); box.id = 'ctl';
-    if (ctlDim) box.classList.add('dim');
+    if (!touchUI) box.classList.add('off');
     const hold = (b, key) => {
       b.classList.add('pedal');
       b.addEventListener('pointerdown', e => { touch[key] = 1; b.classList.add('held'); try { b.setPointerCapture(e.pointerId); } catch (er) {} });
@@ -431,8 +442,8 @@ const hud = {
       fill: rail.querySelector('.fill'), boss, heat: boss.querySelector('.heat'), needle: gauge.querySelector('.needle'), rpm: gauge.querySelector('.rpm'),
       kmh: gauge.querySelector('.kmh'), gear: gauge.querySelector('.gear'), boostBar, segs: [...boostBar.children], live, pop, split, crane, fin, count, lights, car: null, ghost: null, bossMk: null };
     /* markers on the rail: the pace of your best run (a ghost), the boss, you */
-    if (H.best) { H.els.ghost = el('div', 'mk ghost', icons.ghost); rail.append(H.els.ghost); }
-    H.els.car = el('div', 'mk', icons.car); rail.append(H.els.car);
+    if (H.best) { H.els.ghost = el('div', 'mk ghost', icons.markerGhost); rail.append(H.els.ghost); }
+    H.els.car = el('div', 'mk you', icons.marker); rail.append(H.els.car);
     H.cps = [];
     const skipCount = params.get('bot') === '1' || params.has('nocount');
     if (!skipCount) {
@@ -493,11 +504,11 @@ const hud = {
         L.live = live;
       }
     }
-    /* the boss: the heat bar fills as it closes in */
+    /* the boss: the heat bar fills as it closes in. 14.1: it keeps station ahead, so the gap is taken either way */
     const boss = st.actors && st.actors.find(a => a && a.boss);
     if (boss && track && track.finishS > 0) {
-      if (!H.bossSeen) { H.bossSeen = true; E.boss.classList.add('on'); H.els.bossMk = el('div', 'mk', skullSvg()); E.rail.insertBefore(H.els.bossMk, E.car); }
-      const gap = car.s - boss.s, heat = Math.round(clamp(1 - gap / 80, 0, 1) * 100);
+      if (!H.bossSeen) { H.bossSeen = true; E.boss.classList.add('on'); H.els.bossMk = el('div', 'mk boss', icons.markerBoss); E.rail.insertBefore(H.els.bossMk, E.car); }
+      const gap = Math.abs(car.s - boss.s), heat = Math.round(clamp(1 - gap / 80, 0, 1) * 100);
       if (L.heat !== heat) { E.heat.style.width = heat + '%'; E.boss.classList.toggle('hot', heat > 70 && !reduced()); L.heat = heat; }
       const bp = (clamp(boss.s / track.finishS, 0, 1) * 100).toFixed(1);
       if (L.bp !== bp) { H.els.bossMk.style.left = bp + '%'; L.bp = bp; }
@@ -798,6 +809,7 @@ function homeRender() {
   const r = game && game.ctx && game.ctx.renderer;
   if (!r) return;
   r.setScissorTest(false); r.setViewport(0, 0, C.STAGE_W, C.STAGE_H); r.autoClear = true;
+  if (ATT.on && ATT.world) { r.render(ATT.world.scene, ATT.cam); return; }
   if (HOME.back) r.render(HOME.back.scene, HOME.back.camera); else r.clear();
   if (HOME.carScene && HOME.carCam) {
     const [x, y, w, h] = HOME.vp;
@@ -819,11 +831,169 @@ function homeRev() {
     }
   }
 }
+/* ---- attract mode: after 20 s with no input on home, the autopilot races a level of the world of the day
+   behind the menu, cut like a demo reel (chase, side, trackside, crane, head-on). Any input returns to the
+   podium and is swallowed, so the press that wakes the screen never fires a plate. ?attract cuts the wait to 1 s.
+   Reduced motion: one steady chase camera, no cuts. ---- */
+const ATTRACT_IDLE = 20, SHOT_S = 4.2;
+const ATT = { on: false, idle: 0, last: 0, woke: -1e9, run: 0, n: 0, st: null, track: null, world: null, car: null, mons: [], cam: null, acc: 0, doneT: 0,
+  shot: 0, shotT: 0, snap: true, side: 1, plant: null, prev: null, prevA: [], fr: {}, K: null, mx: -1, my: -1 };
+const SHOTS = ['chase', 'side', 'trackside', 'crane', 'front'];
+function attractParams() {
+  const s = VROOM.save.state, st = VROOM.catalog.stats(s), body = VROOM.catalog.BODIES[s.body];
+  if (body && !st.cls) st.cls = body.cls;
+  return VROOM.sim.carParams(st, VROOM.save.progress.upgrades);
+}
+/* even runs a regular level of the world, odd runs its boss finale */
+const attractLevel = run => (HOME.w - 1) * C.WORLD_SIZE + 1 + (run % 2 ? C.WORLD_SIZE - 1 : (HOME.w + run * 3) % (C.WORLD_SIZE - 1));
+function attractClear() {
+  if (ATT.mons) for (const m of ATT.mons) guard('attractDispose', () => m.dispose());
+  if (ATT.car) guard('attractDispose', () => ATT.car.dispose());
+  if (ATT.world) guard('attractDispose', () => ATT.world.dispose());
+  Object.assign(ATT, { st: null, track: null, world: null, car: null, mons: [], cam: null });
+}
+function attractBuild() {
+  attractClear();
+  const S = VROOM.sim, ctx = game.ctx, T = ctx.THREE, n = attractLevel(ATT.run);
+  const spec = VROOM.levels.level(n), track = S.buildTrack(spec);
+  const st = S.newRace(track, attractParams(), { seed: spec.seed, mode: 'race' });
+  const world = VROOM.worlds.buildWorld(ctx, track, spec);
+  ATT.world = world;
+  const car = VROOM.cars.buildCar(ctx, VROOM.save.state);
+  ATT.car = car; world.scene.add(car.group);
+  ATT.mons = st.actors.map(a => { const r = VROOM.monsters.build(ctx, a.kind); world.scene.add(r.group); return r; });
+  const V = () => new T.Vector3();
+  Object.assign(ATT, { n, st, track, cam: new T.PerspectiveCamera(50, C.STAGE_W / C.STAGE_H, 0.1, 3000), acc: 0, doneT: 0,
+    prev: { x: 0, y: 0, z: 0, q: new T.Quaternion() }, prevA: [], q: new T.Quaternion(),
+    K: { pos: V(), look: V(), want: V(), wlook: V(), up: new T.Vector3(0, 1, 0), tmp: V(), fov: 50 } });
+  /* the menu holds the left of the screen: the lens is shifted so the action sits right of centre */
+  ATT.cam.setViewOffset(C.STAGE_W, C.STAGE_H, -C.STAGE_W * 0.16, 0, C.STAGE_W, C.STAGE_H);
+  attractSavePrev();
+  attractCut(reduced() ? 0 : ATT.run % 2 ? 4 : 0);
+}
+function attractSavePrev() {
+  const c = ATT.st.car, p = ATT.prev, A = ATT.st.actors;
+  p.x = c.x; p.y = c.y; p.z = c.z; p.q.set(c.qx, c.qy, c.qz, c.qw);
+  for (let i = 0; i < A.length; i++) { const a = A[i], q = ATT.prevA[i] || (ATT.prevA[i] = [0, 0, 0, 0]); q[0] = a.x; q[1] = a.y; q[2] = a.z; q[3] = a.yaw; }
+}
+function attractCut(i) {
+  ATT.shot = i; ATT.shotT = performance.now(); ATT.snap = true; ATT.side = -ATT.side; ATT.plant = null;
+  if (SHOTS[i] === 'trackside') {
+    /* a camera planted on the verge 40 m ahead: the car screams past it */
+    const T = ATT.track, f = VROOM.sim.frameAt(T, clamp(ATT.st.car.s + 40, 0, T.length), ATT.fr), off = f.hw + 3.5;
+    ATT.plant = new game.ctx.THREE.Vector3(f.x + f.rx * off * ATT.side + f.ux * 2.2, f.y + f.ry * off * ATT.side + f.uy * 2.2, f.z + f.rz * off * ATT.side + f.uz * 2.2);
+  }
+}
+function attractStart() {
+  if (ATT.on || !game || game.current() !== 'home' || !game.ctx || !game.ctx.renderer) return false;
+  ATT.run = 0;
+  if (!guard('attract', () => { attractBuild(); return true; }, false)) { attractClear(); return false; }
+  ATT.on = true;
+  $('home').classList.add('attract');
+  return true;
+}
+function attractStop() {
+  ATT.idle = 0; ATT.last = performance.now();
+  if (!ATT.on) return false;
+  ATT.on = false;
+  attractClear();
+  const h = $('home'); if (h) h.classList.remove('attract');
+  return true;
+}
+function attractStep(dt, t) {
+  const S = VROOM.sim, st = ATT.st, c = st.car;
+  ATT.acc = Math.min(ATT.acc + dt, C.SIM_DT * C.MAX_STEPS_PER_FRAME);
+  while (ATT.acc >= C.SIM_DT) { attractSavePrev(); S.step(st, S.autopilot(st, 1)); ATT.acc -= C.SIM_DT; }
+  for (const ev of st.events) {
+    guard('attractEvent', () => ATT.world.onEvent(ev, st));
+    if (ev.type === 'monster' || ev.type === 'boss') { const r = ATT.mons[ev.a]; if (r) guard('attractEvent', () => r.onEvent(ev.what)); }
+  }
+  st.events.length = 0;
+  const k = ATT.acc / C.SIM_DT, p = ATT.prev, g = ATT.car.group;
+  g.position.set(p.x + (c.x - p.x) * k, p.y + (c.y - p.y) * k, p.z + (c.z - p.z) * k);
+  g.quaternion.copy(p.q).slerp(ATT.q.set(c.qx, c.qy, c.qz, c.qw), k);
+  ATT.car.update(c, dt, t);
+  for (let i = 0; i < st.actors.length; i++) {
+    const a = st.actors[i], r = ATT.mons[i], q = ATT.prevA[i];
+    if (!r) continue;
+    let dy = a.yaw - q[3];
+    dy -= Math.round(dy / (2 * Math.PI)) * 2 * Math.PI;
+    r.group.position.set(q[0] + (a.x - q[0]) * k, q[1] + (a.y - q[1]) * k, q[2] + (a.z - q[2]) * k);
+    r.group.rotation.y = q[3] + dy * k;
+    r.update(a, dt, t);
+  }
+  attractCamera(dt, t);
+  ATT.world.update(st, dt, t, ATT.cam);
+  guard('engineUpdate', () => VROOM.audio.engine.update({ rpm: c.rpm, load: 0.5, speed: c.speed, boost: c.boosting, air: c.air, surf: c.surf, drift: c.drift !== 0 }));
+  /* a finished run (or one that somehow stalls) rolls on to the next level */
+  if (!st.finished) ATT.doneT = 0; else if (!ATT.doneT) ATT.doneT = performance.now();
+  if ((ATT.doneT && performance.now() - ATT.doneT > 2000) || st.t > 180) { ATT.run++; if (!guard('attract', () => { attractBuild(); return true; }, false)) attractStop(); }
+}
+function attractCamera(dt, t) {
+  const K = ATT.K, cam = ATT.cam, c = ATT.st.car, pos = ATT.car.group.position, T = ATT.track, rm = reduced();
+  const f = VROOM.sim.frameAt(T, clamp(c.s, 0, T.length), ATT.fr);
+  /* shots are timed on the wall clock, so a slow device still sees the cuts */
+  const held = (performance.now() - ATT.shotT) / 1000, shot = SHOTS[ATT.shot];
+  if (!rm && (held > SHOT_S || (shot === 'trackside' && ATT.plant && held > 1 && K.tmp.copy(pos).sub(ATT.plant).dot(K.want.set(f.tx, f.ty, f.tz)) > 18))) {
+    /* a boss on the track favours the head-on shot, so the chase fills the frame */
+    const boss = ATT.st.actors.some(a => a.boss && a.alive);
+    attractCut(boss && ATT.shot !== 4 && (ATT.run + Math.floor(t / SHOT_S)) % 2 ? 4 : (ATT.shot + 1) % SHOTS.length);
+  }
+  const sh = SHOTS[ATT.shot], up = K.up.set(f.ux, f.uy, f.uz);
+  const at = (b, l, u) => K.want.set(pos.x + f.tx * b + f.rx * l + up.x * u, pos.y + f.ty * b + f.ry * l + up.y * u, pos.z + f.tz * b + f.rz * l + up.z * u);
+  let fov = 50, lead = 4, sway = rm ? 0 : Math.sin(t * 0.7);
+  if (sh === 'chase') { at(-9 - Math.min(3, Math.abs(c.speed) * 0.05), sway * 1.2, 2.6); fov = 56; }
+  else if (sh === 'side') { at(1.5 + sway, 10 * ATT.side, 1.8); fov = 46; lead = 2; }
+  else if (sh === 'trackside' && ATT.plant) { K.want.copy(ATT.plant); fov = clamp(14 + 600 / Math.max(10, K.want.distanceTo(pos)), 18, 52); lead = 0; }
+  else if (sh === 'crane') { const h = Math.min(SHOT_S, (performance.now() - ATT.shotT) / 1000); at(-5 + h * 2, 4 * ATT.side, 13 - h); fov = 48; }
+  else { at(12 + sway, 2.5 * ATT.side, 1.3); fov = 46; lead = -6; }
+  K.wlook.set(pos.x + f.tx * lead + up.x * 0.9, pos.y + f.ty * lead + up.y * 0.9, pos.z + f.tz * lead + up.z * 0.9);
+  const kp = ATT.snap ? 1 : 1 - Math.exp(-dt * (sh === 'trackside' ? 50 : 6));
+  if (ATT.snap || K.pos.distanceTo(K.want) > 60) { K.pos.copy(K.want); K.look.copy(K.wlook); K.fov = fov; }
+  else { K.pos.lerp(K.want, kp); K.look.lerp(K.wlook, 1 - Math.exp(-dt * 9)); K.fov += (fov - K.fov) * (1 - Math.exp(-dt * 4)); }
+  ATT.snap = false;
+  cam.position.copy(K.pos); cam.up.copy(up); cam.lookAt(K.look);
+  if (Math.abs(cam.fov - K.fov) > 0.05) { cam.fov = K.fov; cam.updateProjectionMatrix(); }
+}
+/* any input on home: resets the idle clock, and wakes attract mode. The waking press does nothing else, nor
+   does a press within 0.6 s of a wake (a mouse glides onto GO and clicks: the glide woke it, the click is eaten) */
+function homeInput(e) {
+  if (!game || game.current() !== 'home') return;
+  if (e.type === 'pointermove') {
+    const moved = ATT.mx >= 0 && Math.abs(e.clientX - ATT.mx) + Math.abs(e.clientY - ATT.my) > 8;
+    ATT.mx = e.clientX; ATT.my = e.clientY;
+    if (!moved) return;
+  }
+  ATT.idle = 0; ATT.last = performance.now();
+  const woke = attractStop();
+  if (woke) ATT.woke = ATT.last;
+  if (e.type !== 'pointermove' && (woke || performance.now() - ATT.woke < 600)) { e.stopPropagation(); if (e.cancelable) e.preventDefault(); }
+}
+for (const ev of ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart']) addEventListener(ev, homeInput, { capture: true, passive: false });
+function padActive() {
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  for (const g of pads) {
+    if (!g || !g.connected) continue;
+    if (g.buttons.some(b => b && (b.pressed || b.value > 0.3)) || g.axes.some(a => Math.abs(a) > 0.4)) return true;
+  }
+  return false;
+}
+function attractTick(dt, t) {
+  /* idle is wall-clock seconds since the last input, so slow frames do not stretch the 20 s */
+  const now = performance.now();
+  if (!ATT.last) ATT.last = now;
+  if (padActive()) attractStop();
+  const ovl = $('ovl'), busy = (ovl && ovl.classList.contains('open')) || document.hidden;
+  if (busy) { attractStop(); return; }
+  ATT.idle = (now - ATT.last) / 1000;
+  if (!ATT.on && ATT.idle >= (params.has('attract') ? 1 : ATTRACT_IDLE)) attractStart();
+  if (ATT.on && !guard('attractStep', () => { attractStep(dt, t); return true; }, false)) attractStop();
+}
 VROOM.scenes.home = {
   id: 'home', dom: 'home', view: null,
   enter() {
     const PR = VROOM.save.progress, root = $('homeHud');
-    HOME.w = worldOfDay(); HOME.rev = 0;
+    HOME.w = worldOfDay(); HOME.rev = 0; ATT.idle = 0; ATT.last = performance.now();
     root.innerHTML = '';
     homeBuild3D();
     const cur = Math.min(PR.current || 1, C.MAX_LEVEL);
@@ -847,6 +1017,8 @@ VROOM.scenes.home = {
     if (pendingImport) { const c = pendingImport; pendingImport = ''; setTimeout(() => importFlow(c), 400); }
   },
   update(dt, t) {
+    attractTick(dt, t);
+    if (ATT.on) { homeRender(); return; }
     if (HOME.back) guard('backdropUpdate', () => HOME.back.update(dt, t));
     HOME.rev = Math.max(0, HOME.rev - dt * 1.4);
     const car = HOME.car, rv = HOME.rev, rm = reduced();
@@ -865,6 +1037,7 @@ VROOM.scenes.home = {
     homeRender();
   },
   exit() {
+    attractStop();
     guard('engineStop', () => VROOM.audio.engine.stop());
     if (HOME.back) guard('backdropDispose', () => HOME.back.dispose());
     if (HOME.rig) guard('rigDispose', () => HOME.rig.dispose());
@@ -1202,4 +1375,7 @@ function init(g) {
   if (code) pendingImport = code;
 }
 
-VROOM.ui = { init, hud, controls, button, toast, transition, icons, medalSvg, badgeSvg, avatarSvg, skullSvg, fmtTime, setAccent, worldOfDay, paused: () => paused, counting: () => !!countdown };
+const attract = { start: attractStart, stop: attractStop, on: () => ATT.on, idle: () => ATT.idle, IDLE: ATTRACT_IDLE,
+  _state: () => ATT.st,
+  probe: () => ({ on: ATT.on, n: ATT.n, shot: SHOTS[ATT.shot], t: ATT.st ? ATT.st.t : 0, s: ATT.st ? ATT.st.car.s : 0, run: ATT.run }) };
+VROOM.ui = { init, hud, controls, button, toast, transition, icons, medalSvg, badgeSvg, avatarSvg, skullSvg, fmtTime, setAccent, worldOfDay, attract, paused: () => paused, counting: () => !!countdown };

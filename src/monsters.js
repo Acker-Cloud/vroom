@@ -105,16 +105,58 @@ function merge(T, items, seed, jitter) {
   out.computeBoundingSphere();
   return out;
 }
-/* race-distance read: roadside creatures and bosses are drawn bigger than their sim radius so they read
-   as threats from the chase cam (debris stays true to size, its rings are the telegraph) */
-const ARCHE_SCALE = { boss: 1.5, debris: 1 };
+/* true to size: a creature is drawn so its footprint (the furthest solid point from its centre in the ground
+   plane, wings, tails, lures and ground marks left out) sits just outside its sim contact radius K.r, so a
+   near miss looks like a near miss and a hit looks like a hit. Bosses stand a little prouder than their radius
+   (they are the spectacle, and their footprint is mostly reaching arms) and never below their 14.0 size;
+   debris is modelled at true size.
+   If the sim grows a radius, the drawing grows with it. */
+const FIT = { boss: 1.4 }, FIT_CREATURE = 1.15, NO_FIT = /^(wing|tail|ground|anchor|lure)/;
+function footprint(parts) {
+  const at = {}, byName = {};
+  for (const p of parts) byName[p.name] = p;
+  const off = p => {
+    if (at[p.name]) return at[p.name];
+    const par = p.parent && byName[p.parent], o = par && par !== p ? off(par) : [0, 0, 0];
+    return (at[p.name] = [o[0] + p.pos[0], o[1] + p.pos[1], o[2] + p.pos[2]]);
+  };
+  let r = 0, hx = 0, hz = 0;
+  for (const p of parts) {
+    if (!p.solid || NO_FIT.test(p.name)) continue;
+    const o = off(p), a = p.solid.attributes.position.array;
+    for (let i = 0; i < a.length; i += 3) { const x = a[i] + o[0], z = a[i + 2] + o[2]; r = Math.max(r, x * x + z * z); hx = Math.max(hx, Math.abs(x)); hz = Math.max(hz, Math.abs(z)); }
+  }
+  return { r: Math.sqrt(r), hx, hz };
+}
 function realize(T, kind, B) {
   const seed = [...kind].reduce((h, ch) => Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0, 2166136261);
-  const KD = VROOM.monsterAI.KINDS[kind], ak = KD ? (ARCHE_SCALE[KD.arche] || 1.4) : 1;
-  const k = (B.flags.scale || 1) * ak, sc = g => { if (g && k !== 1) { g.scale(k, k, k); g.computeBoundingSphere(); } return g; };
-  const parts = B.parts.map((p, i) => ({ name: p.name, parent: p.parent, pos: p.pos.map(v => v * k), solid: sc(merge(T, p.solid, seed + i, true)), glow: sc(merge(T, p.glow, seed + i, false)) }));
-  const chain = B.chain ? { ...B.chain, sp: B.chain.sp * k, at: B.chain.at.map(v => v * k), solidG: sc(merge(T, B.chain.solid, seed + 99, true)), glowG: sc(merge(T, B.chain.glow, seed + 98, false)) } : null;
-  return { parts, chain, flags: B.flags };
+  const KD = VROOM.monsterAI.KINDS[kind];
+  let parts = B.parts.map((p, i) => ({ name: p.name, parent: p.parent, pos: p.pos.slice(), solid: merge(T, p.solid, seed + i, true), glow: merge(T, p.glow, seed + i, false) }));
+  let k = KD && KD.arche === 'debris' ? 1 : B.flags.scale || 1, ch = 1;
+  if (KD && KD.arche !== 'debris') {
+    const fp = footprint(parts);
+    if (fp.r > 0.01) k = KD.r * (FIT[KD.arche] || FIT_CREATURE) / fp.r;
+    /* a boss never shrinks below its 14.0 size: it is the finale's spectacle (open issue: grow its sim radius to match) */
+    if (KD.arche === 'boss') k = Math.max(k, (B.flags.scale || 1) * 1.5);
+    /* a long, thin creature fitted by its length comes out a sliver: fill it out across and up (never past
+       its length, so the footprint stays inside the fit) so a small one reads as a beast, not a scrap of rubble */
+    if (KD.arche !== 'boss' && fp.hx > 0.01 && fp.hx < fp.hz * 0.55) ch = Math.min(1.6, fp.hz * 0.55 / fp.hx);
+  }
+  const kx = k * ch, ky = k * ch, kz = k;
+  const sc = g => { if (g && (kx !== 1 || kz !== 1)) { g.scale(kx, ky, kz); g.computeVertexNormals(); g.computeBoundingSphere(); } return g; };
+  parts = parts.map(p => ({ ...p, pos: [p.pos[0] * kx, p.pos[1] * ky, p.pos[2] * kz], solid: sc(p.solid), glow: sc(p.glow) }));
+  const chain = B.chain ? { ...B.chain, sp: B.chain.sp * k, at: [B.chain.at[0] * kx, B.chain.at[1] * ky, B.chain.at[2] * kz], solidG: sc(merge(T, B.chain.solid, seed + 99, true)), glowG: sc(merge(T, B.chain.glow, seed + 98, false)) } : null;
+  /* where the eyes are: the front of the glow on the head (or the body), for the eye glint */
+  let eyeAt = null;
+  for (const nm of ['head', 'body']) {
+    const p = parts.find(q => q.name === nm && q.glow);
+    if (!p) continue;
+    p.glow.computeBoundingBox();
+    const bb = p.glow.boundingBox;
+    eyeAt = { part: nm, pos: [(bb.min.x + bb.max.x) / 2, (bb.min.y + bb.max.y) / 2, bb.max.z] };
+    break;
+  }
+  return { parts, chain, flags: B.flags, k, eyeAt };
 }
 
 /* ---------- the roster: every design is our own ---------- */
@@ -864,14 +906,45 @@ function overlayGeo(ctx, name) {
   return g;
 }
 
+/* rim light per world, picked to fight the world's own light so a creature's edge always separates from
+   the scenery: cold cyan in the furnace worlds, sodium orange in the blue ones, toxic green in the violet ones */
+const RIM = { 1: '#6fe8ff', 2: '#7ad8ff', 3: '#b8ff3a', 4: '#ffb02e', 5: '#ff8a2a', 6: '#4ad0ff', 7: '#ff7a4a', 8: '#ffd36b', 9: '#6bf0ff', 10: '#7af0ff', 11: '#ff5ad8', 12: '#9cff3a' };
+/* a faceted fresnel rim added to the emissive: faces turning away from the camera light up in rimC */
+function rimify(mat, u) {
+  mat.onBeforeCompile = sh => {
+    sh.uniforms.rimC = u.rimC; sh.uniforms.rimK = u.rimK;
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform vec3 rimC;\nuniform float rimK;')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n{ float rf = 1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0); totalEmissiveRadiance += rimC * (rimK * rf * rf * rf * rf); }');
+  };
+  mat.customProgramCacheKey = () => 'vroom-monster-rim';
+}
+
+/* the eye glint texture: a hot core and a soft falloff, shared by every rig */
+function glintTex(ctx) {
+  const key = 'mon:glint';
+  if (ctx.cache && ctx.cache.has(key)) return ctx.cache.get(key);
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.18, 'rgba(255,255,255,0.85)'); gr.addColorStop(0.45, 'rgba(255,255,255,0.25)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  const t = new ctx.THREE.CanvasTexture(c);
+  if (ctx.cache) ctx.cache.set(key, t);
+  return t;
+}
+
 function build(ctx, kind) {
   const T = ctx.THREE, K = VROOM.monsterAI.KINDS[kind] || { kind, world: 1, arche: 'lurker', r: 1, h: 2, fly: 0, style: 'walk' };
   const G = geometryFor(ctx, kind), rm = !!ctx.reducedMotion;
   const group = new T.Group();
   group.name = 'monster:' + kind;
   const solidMat = new T.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.66, metalness: 0.3, emissive: 0x000000 });
-  const glowMat = new T.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
-  const piv = {}, mats = [solidMat, glowMat];
+  const rimBase = new T.Color(RIM[K.world] || RIM[1]), rimU = { rimC: { value: rimBase.clone() }, rimK: { value: 1 } };
+  rimify(solidMat, rimU);
+  solidMat.userData.rim = rimU;   /* read by the suites */
+  /* eyes and glow strips cut through fog and blizzard, so a boss reads from far down the road */
+  const glowMat = new T.MeshBasicMaterial({ vertexColors: true, toneMapped: false, fog: K.arche !== 'boss' });
+  const piv = {}, mats = [solidMat, glowMat], isBossK = K.arche === 'boss';
   for (const p of G.parts) {
     const o = new T.Group();
     o.name = p.name; o.position.set(p.pos[0], p.pos[1], p.pos[2]);
@@ -881,6 +954,18 @@ function build(ctx, kind) {
     piv[p.name] = o;
   }
   for (const p of G.parts) (p.parent && piv[p.parent] ? piv[p.parent] : group).add(piv[p.name]);
+  /* the eye glint: a soft additive flare over the eyes, so a creature reads as a pair of eyes in the dark from
+     far down the road; it flares hot through a tell. Debris has no eyes */
+  let glint = null;
+  if (G.eyeAt && K.arche !== 'debris' && piv[G.eyeAt.part]) {
+    const gm = new T.SpriteMaterial({ map: glintTex(ctx), color: new T.Color(accent(K.world || 1)[1]), transparent: true, blending: T.AdditiveBlending, depthWrite: false, toneMapped: false, fog: K.arche !== 'boss' });
+    mats.push(gm);
+    glint = new T.Sprite(gm);
+    glint.position.set(G.eyeAt.pos[0], G.eyeAt.pos[1], G.eyeAt.pos[2] + 0.05);
+    glint.userData.size = (isBossK ? 2.6 : 0.9) + K.r * 0.55;
+    glint.scale.setScalar(glint.userData.size);
+    piv[G.eyeAt.part].add(glint);
+  }
   /* the long body: one InstancedMesh for every segment */
   let chain = null;
   if (G.chain && G.chain.solidG) {
@@ -905,7 +990,12 @@ function build(ctx, kind) {
   const hot = new T.Color(0xff5a1a), hazard = new T.Color(0xf2b705), flashC = new T.Color(accent(K.world || 1)[1]);
 
   /* smoothed pose channels */
-  const P = { rise: 0, crouch: 0, lean: 0, jaw: 0, arms: 0, glow: 1, wing: 0.3, wrate: 3, run: 0, trem: 0, tilt: 0, tuck: 0, cyc: 0, roll: 0, flash: 0, dust: -1, wob: 0, spin: 0, ev: '', evT: 9 };
+  const P = { rise: 0, crouch: 0, lean: 0, jaw: 0, arms: 0, glow: 1, wing: 0.3, wrate: 3, run: 0, trem: 0, tilt: 0, tuck: 0, cyc: 0, roll: 0, flash: 0, dust: -1, wob: 0, spin: 0, ev: '', evT: 9, enter: 9 };
+  /* a boss carries its own light: a point light in its accent that throws its glow on the road and the car.
+     It lives in the scene, not the group, and only dims while the boss is away, so the scene's light count
+     (and every shader) stays fixed for the whole race */
+  let lamp = null;
+  const lampC = new T.Color(accent(K.world || 1)[1]);
   const loc = [0, 0, 0], AT = [0, 0, 0];
   function toLocal(x, y, z) {
     const dx = x - group.position.x, dy = y - group.position.y, dz = z - group.position.z, c = Math.cos(group.rotation.y), s = Math.sin(group.rotation.y);
@@ -988,7 +1078,10 @@ function build(ctx, kind) {
     const st = a.state, u = a.stateT || 0;
     const hidden = st === 'gone' || (isBoss && st === 'idle') || (isDebris && st === 'gone');
     group.visible = !hidden;
-    if (hidden) return;
+    /* the lamp joins the scene on the first frame, while the boss still waits off stage, so the light count is
+       settled before the race starts and its entrance costs no shader rebuild */
+    if (isBoss && !lamp && group.parent) { lamp = new T.PointLight(lampC, 0, Math.max(30, K.h * 4), 1.4); group.parent.add(lamp); }
+    if (hidden) { if (lamp) lamp.intensity = 0; return; }
     const k = 1 - Math.exp(-dt * 11), kf = 1 - Math.exp(-dt * 22);
     let crouch = 0, lean = 0, jaw = 0.06, arms = 0, glow = 1, wing = 0.3, wrate = 3, run = 0, trem = 0, tilt = 0, tuck = 0;
     const speed = Math.abs(a.vs || 0) + Math.abs(a.vd || 0);
@@ -1073,7 +1166,38 @@ function build(ctx, kind) {
     }
     if (chain) poseChain(a, dt, t);
 
+    /* a boss's entrance: it bursts up out of the road, overshoots and settles (1.2 s), white hot */
+    P.enter += dt;
+    if (isBoss && P.enter < 1.2 && body) {
+      const e = P.enter / 1.2, up = rm ? 1 : Math.min(1, e / 0.45), pop = rm ? 1 : 0.7 + 0.3 * up + 0.12 * Math.sin(Math.min(1, e) * Math.PI) * (1 - e);
+      body.position.y -= (1 - up) * K.h * 0.9;
+      body.scale.multiplyScalar(pop);
+      P.flash = Math.max(P.flash, 1 - e);
+    }
     glowMat.color.setScalar(Math.max(0.15, P.glow));
+    /* the rim: the world's contrast colour at rest, swelling hot and pulsing through a tell so the lunge is
+       called before it comes, held hot through the lunge, dim while dazed */
+    {
+      const tell = st === 'tell' && !a.defeated, urg = tell ? Math.min(1, u / Math.max(0.2, a.tellT || K.tell || 0.8)) : 0;
+      const hotNow = tell || st === 'lunge' || st === 'attack', pulse = tell ? 0.5 + 0.5 * Math.sin(t * (12 + urg * 26)) : 1;
+      rimU.rimC.value.copy(rimBase).lerp(hot, hotNow ? (tell ? 0.45 + 0.55 * urg : 0.8) : 0);
+      rimU.rimK.value = (st === 'stagger' || a.defeated ? 0.3 : isBoss ? 0.75 : 0.6) + (tell ? (0.6 + 1.4 * urg) * pulse : hotNow ? 0.7 : 0) + P.flash * 1.0;
+    }
+    if (glint) {
+      /* in a pack only every other member flares (each glint is a draw call); the pack still reads as eyes */
+      glint.visible = !(K.arche === 'swarm' && (a.i || 0) % 2);
+      const tellG = st === 'tell' && !a.defeated, gU = tellG ? Math.min(1, u / Math.max(0.2, a.tellT || K.tell || 0.8)) : 0;
+      glint.material.color.copy(flashC).lerp(hot, tellG ? 0.5 + 0.5 * gU : st === 'lunge' || st === 'attack' ? 0.7 : 0);
+      glint.material.opacity = a.defeated || st === 'stagger' ? 0.25 : Math.min(1, 0.55 + 0.25 * P.glow);
+      glint.scale.setScalar(glint.userData.size * (1 + (tellG ? 0.6 * gU * (rm ? 1 : 0.7 + 0.3 * Math.sin(t * 30)) : 0)));
+    }
+    if (isBoss) {
+      if (lamp) {
+        lamp.position.set(group.position.x, group.position.y + K.h * 0.55, group.position.z);
+        const want = hidden ? 0 : (a.defeated ? Math.max(0, 1 - u) : 1) * (60 + 40 * Math.min(2, P.glow) + 200 * P.flash) * (K.h / 8);
+        lamp.intensity += (want - lamp.intensity) * Math.min(1, dt * 8);
+      }
+    }
     /* a hit flashes in the world accent, capped so the rust and paint still read through it */
     const fl = Math.min(0.45, P.flash * 0.45);
     solidMat.emissive.setRGB(flashC.r * fl, flashC.g * fl, flashC.b * fl);
@@ -1135,9 +1259,11 @@ function build(ctx, kind) {
     }
     if (what === 'enrage') P.flash = 0.6;
     if (what === 'defeat') P.flash = 1;
+    if (what === 'enter' && isBoss) P.enter = 0;
   }
   function dispose() {
     group.removeFromParent();
+    if (lamp) { lamp.removeFromParent(); lamp.dispose(); lamp = null; }
     for (const m of mats) m.dispose();
     if (chain) { chain.mesh.dispose(); if (chain.glow) chain.glow.dispose(); }
   }

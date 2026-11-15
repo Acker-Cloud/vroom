@@ -156,9 +156,18 @@ const PAINT_ROWS = [
   ['m:toxic',       'pattern', '#1f2a12', 0.5,  0.4,  { pattern: 'ooze', ink: '#8cff3a', glow: '#8cff3a' }],
   ['m:blackchrome', 'metal',   '#20232a', 1.0,  0.08],
   ['m:camo',        'pattern', '#4f5a2c', 0.2,  0.75, { pattern: 'woodland', ink: '#2b2f18' }],
+  /* v14 two-tone metallics: base over the top, `low` under the belt line, a `stripe` pinstripe between.
+     A `stencil` is a decal id the paint wears itself while the build's own decal is 'none'. */
+  ['m:furnace',     'metal',   '#d0281a', 0.7,  0.3,  { low: '#4b515b', stripe: '#ffb02e', stencil: 'flame' }],   /* the starter: furnace red over gunmetal, flame stencils */
+  ['m:venom',       'metal',   '#5fae1a', 0.75, 0.3,  { low: '#16171b', stripe: '#8cff3a' }],
+  ['m:bonewhite',   'metal',   '#d9ccae', 0.6,  0.36, { low: '#3a2a1a', stripe: '#b3200f' }],
+  ['m:cobalt',      'metal',   '#1f5fa8', 0.8,  0.28, { low: '#20232a', stripe: '#c7ccd5' }],
 ];
-const NEW_PAINT_IDS = ['m:gunmetal', 'm:chrome', 'm:rust', 'm:molten', 'm:hazard', 'm:toxic', 'm:blackchrome', 'm:camo'];
-const NEW_PAINT_PRICES = { 'm:gunmetal': 40, 'm:chrome': 150, 'm:rust': 30, 'm:molten': 220, 'm:hazard': 80, 'm:toxic': 180, 'm:blackchrome': 260, 'm:camo': 60 };
+const NEW_PAINT_IDS = ['m:gunmetal', 'm:chrome', 'm:rust', 'm:molten', 'm:hazard', 'm:toxic', 'm:blackchrome', 'm:camo',
+  'm:furnace', 'm:venom', 'm:bonewhite', 'm:cobalt'];
+/* m:furnace is free: it is the starter paint (STARTER below), so every save owns it */
+const NEW_PAINT_PRICES = { 'm:gunmetal': 40, 'm:chrome': 150, 'm:rust': 30, 'm:molten': 220, 'm:hazard': 80, 'm:toxic': 180, 'm:blackchrome': 260, 'm:camo': 60,
+  'm:furnace': 0, 'm:venom': 160, 'm:bonewhite': 120, 'm:cobalt': 140 };
 const PAINTS = {};
 for (const [id, kind, base, metal, rough, x = {}] of PAINT_ROWS) {
   const price = NEW_PAINT_PRICES[id] !== undefined ? NEW_PAINT_PRICES[id] : (L.PRICES.color[id] || 0);
@@ -216,6 +225,11 @@ const TABLE = { body: BODIES, wheels: WHEELS, color: PAINTS, decal: DECALS, extr
 /* stars for a part; undefined for an unknown id (save.js then falls back to the v12 price) */
 function price(kind, id) { const t = TABLE[kind], p = t && Object.prototype.hasOwnProperty.call(t, id) ? t[id] : null; return p ? p.price : undefined; }
 
+/* the build a brand-new save starts with (v14): the Mauler in two-tone furnace metallic, which wears its own flame
+   stencils (every v12 decal costs stars, so the free paint carries the livery). Every part is free. Existing
+   saves keep their own build; save.js seeds a fresh state from this. */
+const STARTER = Object.freeze({ body: 'monster', wheels: 'monster', color: 'm:furnace', decal: 'none', buddy: null, number: '', extras: Object.freeze({}) });
+
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 /* the build's CarStats: the body's, with the wheel's radius (clamped to the chassis, which lifts the ride
    height by the same amount), grip and mass, then every enabled extra's mods added. A fresh object. */
@@ -238,4 +252,4 @@ function stats(build) {
   return s;
 }
 
-VROOM.catalog = { CLASS, BODIES, WHEELS, PAINTS, DECALS, EXTRAS, BUDDIES, NEW_BODY_IDS, NEW_WHEEL_IDS, NEW_PAINT_IDS, NEW_DECAL_IDS, NEW_EXTRA_IDS, NEW_BUDDY_IDS, price, stats };
+VROOM.catalog = { CLASS, BODIES, WHEELS, PAINTS, DECALS, EXTRAS, BUDDIES, NEW_BODY_IDS, NEW_WHEEL_IDS, NEW_PAINT_IDS, NEW_DECAL_IDS, NEW_EXTRA_IDS, NEW_BUDDY_IDS, STARTER, price, stats };

@@ -115,12 +115,26 @@ async function screen(page, name) {
   const tm = await page.evaluate(() => document.querySelector('#hTime .n').textContent);
   check('the timer reads m:ss.cc', /^\d+:\d\d\.\d\d$/.test(tm), tm);
 
+  const mk = await page.evaluate(() => ({ you: !!document.querySelector('#hRail .mk.you svg #mkChrome'), car: document.querySelectorAll('#hRail .mk svg path[d^="M6 40 L10 28"]').length,
+    boss: /<svg/.test(VROOM.ui.icons.markerBoss) && /<svg/.test(VROOM.ui.icons.markerGhost) }));
+  check('the rail marker is a chrome arrowhead (no cartoon car); ghost and boss markers are metal pictograms', mk.you && mk.car === 0 && mk.boss, JSON.stringify(mk));
+  /* a fine pointer (the desktop, this browser): the touch plates are in the DOM but not on screen */
+  const plates = () => page.evaluate(() => (document.getAnimations().forEach(a => { try { a.finish(); } catch (e) { /* endless */ } }), { off: document.getElementById('ctl').classList.contains('off'),
+    shown: ['ctlGas', 'ctlBrake', 'ctlBoost', 'ctlDrift'].filter(id => getComputedStyle(document.getElementById(id)).visibility !== 'hidden').length }));
+  await page.waitForTimeout(300);
+  const plates0 = await plates();
+  check('no touch yet on a fine pointer: the touch plates stay off screen', plates0.off && plates0.shown === 0, JSON.stringify(plates0));
+  await page.evaluate(() => document.getElementById('stage').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 5, pointerType: 'touch' })));
+  await page.waitForTimeout(300);
+  const platesT = await plates();
+  check('the first touch brings the plates up', !platesT.off && platesT.shown === 4, JSON.stringify(platesT));
   await page.keyboard.down('ArrowUp'); await page.keyboard.down('ArrowLeft'); await page.keyboard.down(' '); await page.keyboard.down('Shift');
   for (let i = 0; i < 30; i++) await page.evaluate(() => VROOM.ui.controls.read());
   const kb = await page.evaluate(() => VROOM.ui.controls.read());
   await page.keyboard.up('ArrowUp'); await page.keyboard.up('ArrowLeft'); await page.keyboard.up(' '); await page.keyboard.up('Shift');
   check('keyboard: up = throttle, left = steer left (ramped to full), space = boost, shift = drift', kb.throttle === 1 && kb.steer === -1 && kb.boost === 1 && kb.drift === 1, JSON.stringify(kb));
-  const dimKb = await page.evaluate(() => document.getElementById('ctl').classList.contains('dim'));
+  await page.waitForTimeout(300);
+  const platesK = await plates();
   const kb0 = await page.evaluate(() => VROOM.ui.controls.read());
   check('keys released: a neutral InputFrame', kb0.throttle === 0 && kb0.steer === 0 && kb0.boost === 0 && kb0.drift === 0, JSON.stringify(kb0));
   const ped = await page.evaluate(() => {
@@ -132,8 +146,7 @@ async function screen(page, name) {
     return { on, off };
   });
   check('touch pedals: gas and brake held together, released to zero', ped.on.throttle === 1 && ped.on.brake === 1 && ped.off.throttle === 0 && ped.off.brake === 0, JSON.stringify(ped));
-  const dimTouch = await page.evaluate(() => document.getElementById('ctl').classList.contains('dim'));
-  check('keyboard driving fades the touch plates back; a touch brings them back', dimKb && !dimTouch, `after keys ${dimKb}, after touch ${dimTouch}`);
+  check('keyboard driving clears the touch plates off screen (a mouse-style press does not bring them back)', platesK.off && platesK.shown === 0 && (await plates()).off, JSON.stringify(platesK));
   const steer = await page.evaluate(() => {
     const z = document.getElementById('ctlSteer');
     if (!z) return null;

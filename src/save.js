@@ -68,7 +68,9 @@ const clampInt = (v, a, b) => (Number.isFinite(v) ? Math.min(b, Math.max(a, Math
 
 /* ---- the state ---- */
 const blankExtras = () => Object.fromEntries(EXTRA_ORDER.map(k => [k, false]));
-const state = { body: 'monster', wheels: 'monster', color: '#e53935', buddy: null, decal: 'none', number: '', extras: blankExtras() };
+/* 14.1: a new save starts in the catalog's starter build (the Mauler in two-tone m:furnace); a loaded save overwrites it */
+const STARTER = cat().STARTER || { body: 'monster', wheels: 'monster', color: '#e53935', buddy: null, decal: 'none', number: '' };
+const state = { body: STARTER.body, wheels: STARTER.wheels, color: STARTER.color, buddy: STARTER.buddy, decal: STARTER.decal, number: STARTER.number, extras: blankExtras() };
 const progress = {
   wallet: 0, owned: { body: [], wheels: [], color: [], extras: [], buddy: [], decal: [] }, levels: {}, current: 1,
   muddy: false, fuel: FUEL_MAX, tread: TREAD_MAX, damage: 0, upgrades: { engine: 0, armor: 0, magnet: 0, tank: 0, springs: 0 },

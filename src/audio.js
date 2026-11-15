@@ -1,9 +1,10 @@
 /* audio: every sound synthesized with Web Audio, nothing sampled, all original. Owner: ui.
    One master chain (buses -> master gain -> compressor -> out); quiet mode (save.progress.quiet) scales the master.
-   - sfx(name, opts)   every name in contracts.SFX, plus a few private ones ('roar', 'rev'); unknown names are silent no-ops.
+   - sfx(name, opts)   every name in contracts.SFX, plus a few private ones ('roar', 'rev', 'surface'); unknown names are silent no-ops.
                        opts = { v: volume 0..1, p: pitch multiplier, pan: -1..1, kind: monster kind (voices differ per kind) }
    - engine            per class voice (brute, hauler, racer, tank, hover, freak): detuned saws and a sub through a
-                       driven shaper, a firing-rate pulse, a noise rumble, a boost whine, off-throttle crackle, gravel offroad.
+                       driven shaper, a firing-rate pulse, a noise rumble, a boost whine, off-throttle crackle, gravel offroad,
+                       and a held tyre howl: engine.update({ ..., drift, slip }) while a power slide lasts.
    - music             a lookahead step sequencer: palm-muted power-chord chugs through a distortion stack, a drum machine
                        with a gated snare, a bass, a lead in each world's scale. 'title' 'garage' 'map' 'w1'..'w12' 'boss' 'results'.
    - ambience(w)       a looped bed per world (foundry rumble, rain, wind, surf, hum, lava, deep water, storm) with one-shots.
@@ -173,6 +174,15 @@ const SFX = {
     clank(t, 180 * p, 0.35 * v, o, 0.9, 0.6); clank(t + 0.01, 523 * p, 0.15 * v, o, 0.6, 0.4);
   },
   whoosh(t, v, p, o) { hiss(t, { f: 300 * p, f1: 3000 * p, q: 1.2, a: 0.08, d: 0.25, v: 0.35 * v, dest: o }); },
+  /* private: the tyres changing ground (kind = the SURF key): a steel clank, an ice crackle, a mud slap, a gravel spray */
+  surface(t, v, p, o, k) {
+    if (k === 'water') { SFX.splash(t, v, p, o); return; }
+    if (k === 'steel' || k === 'glass') { clank(t, (k === 'glass' ? 1500 : 620) * p, 0.16 * v, o, 0.25, 0.1); hiss(t, { type: 'highpass', f: 4000, d: 0.06, v: 0.12 * v, dest: o }); return; }
+    if (k === 'ice') { for (let i = 0; i < 6; i++) hiss(t + i * 0.025, { type: 'highpass', f: 5000 + i * 300, d: 0.02, v: 0.16 * v, dest: o }); return; }
+    if (k === 'mud' || k === 'oil' || k === 'sugar') { hiss(t, { type: 'lowpass', f: 900, f1: 200, a: 0.01, d: 0.22, v: 0.4 * v, dest: o, drive: 6 }); tone(t, { type: 'sine', f: 120 * p, f1: 60, d: 0.12, v: 0.25 * v, dest: o }); return; }
+    if (k === 'lava') { hiss(t, { f: 1200, f1: 3000, q: 1, d: 0.5, v: 0.3 * v, dest: o }); return; }
+    hiss(t, { f: 1800 * p, f1: 900 * p, q: 1, a: 0.01, d: 0.25, v: 0.3 * v, dest: o });
+  },
   /* private: the splash roar and the home rev */
   roar(t, v, p, o) { tone(t, { type: 'sawtooth', f: 45 * p, f1: 160 * p, glide: 0.5, a: 0.02, d: 1.3, v: 0.25 * v, dest: o, drive: 30, lp: 1800 }); tone(t, { type: 'sawtooth', f: 45.6 * p, f1: 162 * p, glide: 0.5, a: 0.02, d: 1.3, v: 0.2 * v, dest: o, drive: 30, lp: 1400 }); hiss(t, { type: 'lowpass', f: 300, f1: 1400, d: 1.2, v: 0.25 * v, dest: o }); },
   rev(t, v, p, o) { tone(t, { type: 'sawtooth', f: 50 * p, f1: 140 * p, glide: 0.25, a: 0.01, d: 0.6, v: 0.12 * v, dest: o, drive: 25, lp: 1600 }); },
@@ -241,9 +251,13 @@ const engine = {
     const wh = actx.createOscillator(), wg = actx.createGain(); wh.type = V.turbine ? 'sawtooth' : 'sine'; wg.gain.value = 0;
     const wf = actx.createBiquadFilter(); wf.type = 'bandpass'; wf.Q.value = 6; wf.frequency.value = 2000;
     wh.connect(wf); wf.connect(wg); wg.connect(busEng);
-    for (const x of [o1, o2, sub, lfo, ns, wh]) x.start(t);
+    /* the tyre howl of a power slide: narrow noise plus a wavering squeal, held as long as the drift */
+    const sf = actx.createBiquadFilter(); sf.type = 'bandpass'; sf.Q.value = 7; sf.frequency.value = 1700;
+    const sq = actx.createOscillator(), sqg = actx.createGain(), sgn = actx.createGain(); sq.type = 'sawtooth'; sq.frequency.value = 820; sqg.gain.value = 0.06;
+    sgn.gain.value = 0; ns.connect(sf); sq.connect(sqg); sqg.connect(sf); sf.connect(sgn); sgn.connect(busEng);
+    for (const x of [o1, o2, sub, lfo, ns, wh, sq]) x.start(t);
     g.gain.setTargetAtTime(1, t, 0.15);
-    eng = { V, g, lp, o1, o2, sub, lfo, ns, nf, ng, gg, wh, wg, wf, srcs: [o1, o2, sub, lfo, ns, wh], rpm: 0.1, crackT: 0 };
+    eng = { V, g, lp, o1, o2, sub, lfo, ns, nf, ng, gg, wh, wg, wf, sf, sq, sgn, srcs: [o1, o2, sub, lfo, ns, wh, sq], rpm: 0.1, crackT: 0 };
     engine.update({ rpm: 0.1, load: 0, speed: 0 });
   },
   update(s) {
@@ -262,6 +276,12 @@ const engine = {
     E.wh.frequency.setTargetAtTime(V.turbine ? f * 4 : 1400 + rpm * 2600, t, k);
     E.wf.frequency.setTargetAtTime(V.turbine ? f * 4 : 1400 + rpm * 2600, t, k);
     E.wg.gain.setTargetAtTime(boost * 0.08 * V.whine + (V.turbine ? 0.03 + rpm * 0.05 : 0), t, 0.08);
+    /* the slide: full howl in a drift, a little chirp from raw wheel slip, none in the air; ice and water hush it */
+    const slip = clamp(Number.isFinite(s.slip) ? s.slip : 0, 0, 1), sur = s.surf | 0;
+    const howl = s.air ? 0 : Math.max(s.drift ? 0.75 + 0.25 * slip : 0, slip > 0.35 ? (slip - 0.35) * 0.6 : 0) * clamp(speed / 12, 0, 1) * (sur === 5 || sur === 8 ? 0.3 : OFFROAD.has(sur) ? 0.55 : 1);
+    E.sgn.gain.setTargetAtTime(howl * 0.22, t, howl > 0 ? 0.04 : 0.12);
+    E.sf.frequency.setTargetAtTime(1300 + speed * 18 + (Math.random() - 0.5) * 240, t, 0.05);
+    E.sq.frequency.setTargetAtTime(700 + speed * 6 + Math.sin(t * 23) * 40, t, 0.05);
     /* off-throttle crackle: revs falling with the foot off pop the exhaust */
     if (V.crackle && E.rpm - rpm > 0.004 && load < 0.1 && rpm > 0.3 && t > E.crackT) {
       E.crackT = t + 0.04 + Math.random() * 0.12;
@@ -274,7 +294,7 @@ const engine = {
     if (!eng) return;
     const E = eng, t = actx.currentTime;
     eng = null;
-    E.g.gain.setTargetAtTime(0, t, 0.06); E.wg.gain.setTargetAtTime(0, t, 0.05); E.gg.gain.setTargetAtTime(0, t, 0.05);
+    E.g.gain.setTargetAtTime(0, t, 0.06); E.wg.gain.setTargetAtTime(0, t, 0.05); E.gg.gain.setTargetAtTime(0, t, 0.05); E.sgn.gain.setTargetAtTime(0, t, 0.05);
     for (const x of E.srcs) { try { x.stop(t + 0.4); } catch (e) {} }
   },
 };

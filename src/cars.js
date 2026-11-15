@@ -362,19 +362,53 @@ function std(ctx, o) {
   const m = new T.MeshStandardMaterial({ flatShading: true, vertexColors: true, envMap: envMap(ctx), ...o });
   return m;
 }
+/* the edge light and the two-tone split, patched into the standard shader (no extra draw calls).
+   Rim: a warm fresnel glow on faces turned away from the camera, so a dark machine still cuts a silhouette
+   against a dark world. Two-tone: below uSplit (body-space metres, from the aBodyY attribute finishKit bakes
+   into paint geometry) the paint is uLow, above it uHigh, with a uStripe pinstripe on the line. */
+const RIM = 0xffd8b0;
+function shade(m, o) {
+  const u = { uRim: { value: new T.Color(RIM).multiplyScalar(o.rim) } };
+  if (o.low) Object.assign(u, { uLow: { value: new T.Color(o.low) }, uHigh: { value: new T.Color(o.high) }, uStripe: { value: new T.Color(o.stripe) }, uSplit: { value: 1 } });
+  m.userData.shade = u;
+  m.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, u);
+    let f = 'uniform vec3 uRim;\n' + sh.fragmentShader.replace('#include <emissivemap_fragment>',
+      '#include <emissivemap_fragment>\n{ float rf = smoothstep(0.5, 1.0, 1.0 - abs(dot(normalize(normal), normalize(vViewPosition)))); totalEmissiveRadiance += uRim * rf * rf; }');
+    if (o.low) {
+      sh.vertexShader = 'attribute float aBodyY;\nvarying float vBodyY;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvBodyY = aBodyY;');
+      f = 'uniform vec3 uLow;\nuniform vec3 uHigh;\nuniform vec3 uStripe;\nuniform float uSplit;\nvarying float vBodyY;\n' + f.replace('#include <color_fragment>',
+        '#include <color_fragment>\n{ float e = vBodyY - uSplit; diffuseColor.rgb *= abs(e) < 0.04 ? uStripe : (e < 0.0 ? uLow : uHigh); }');
+    }
+    sh.fragmentShader = f;
+  };
+  m.customProgramCacheKey = () => 'cars.shade' + (o.low ? '.tt' : '');
+  return m;
+}
+/* set the two-tone line on a rig's paint: a share of the way up the painted parts (or the body's own split) */
+function splitPaint(meshes, m, frac = 0.3, at) {
+  const u = m.userData.shade;
+  if (!u || !u.uSplit) return;
+  let lo = Infinity, hi = -Infinity;
+  for (const me of meshes) {
+    const a = me.name === 'paint' && me.geometry.attributes.aBodyY;
+    if (a) for (let i = 0; i < a.count; i++) { const y = a.array[i]; if (y < lo) lo = y; if (y > hi) hi = y; }
+  }
+  if (hi > lo) u.uSplit.value = at !== undefined ? at : lo + (hi - lo) * frac;
+}
 function shared(ctx) {
   return memo(ctx, 'cars.mats', () => ({
-    dark: std(ctx, { color: 0xffffff, metalness: 0.55, roughness: 0.68, map: grimeTex(ctx), envMapIntensity: 0.6, side: T.DoubleSide }),
-    chrome: std(ctx, { color: 0xffffff, metalness: 1, roughness: 0.14, envMapIntensity: 1.5 }),
-    steel: std(ctx, { color: 0xffffff, metalness: 0.85, roughness: 0.42, map: steelTex(ctx), envMapIntensity: 1 }),
-    rough: std(ctx, { color: 0xffffff, metalness: 0.05, roughness: 0.88, map: grimeTex(ctx), envMapIntensity: 0.3 }),
-    rust: std(ctx, { color: 0xffffff, metalness: 0.3, roughness: 0.9, map: rustTex(ctx), envMapIntensity: 0.3 }),
-    hazard: std(ctx, { color: 0xffffff, metalness: 0.3, roughness: 0.6, map: hazardTex(ctx), envMapIntensity: 0.4 }),
+    dark: shade(std(ctx, { color: 0xffffff, metalness: 0.55, roughness: 0.68, map: grimeTex(ctx), envMapIntensity: 0.6, side: T.DoubleSide }), { rim: 0.36 }),
+    chrome: shade(std(ctx, { color: 0xffffff, metalness: 1, roughness: 0.14, envMapIntensity: 1.5 }), { rim: 0.3 }),
+    steel: shade(std(ctx, { color: 0xffffff, metalness: 0.85, roughness: 0.42, map: steelTex(ctx), envMapIntensity: 1 }), { rim: 0.38 }),
+    rough: shade(std(ctx, { color: 0xffffff, metalness: 0.05, roughness: 0.88, map: grimeTex(ctx), envMapIntensity: 0.3 }), { rim: 0.3 }),
+    rust: shade(std(ctx, { color: 0xffffff, metalness: 0.3, roughness: 0.9, map: rustTex(ctx), envMapIntensity: 0.3 }), { rim: 0.3 }),
+    hazard: shade(std(ctx, { color: 0xffffff, metalness: 0.3, roughness: 0.6, map: hazardTex(ctx), envMapIntensity: 0.4 }), { rim: 0.3 }),
     glass: std(ctx, { color: 0x1a2029, metalness: 0.9, roughness: 0.06, envMapIntensity: 1.6, emissive: 0x070a10, vertexColors: false }),
     glow: new T.MeshBasicMaterial({ color: 0xffffff, vertexColors: true }),
     ice: std(ctx, { color: 0xbff2ff, metalness: 0.2, roughness: 0.05, transparent: true, opacity: 0.82, emissive: 0x1a5a7a, vertexColors: false, envMapIntensity: 1.6 }),
     tyre: new T.MeshStandardMaterial({ color: 0xffffff, map: treadTex(ctx), metalness: 0, roughness: 0.92, flatShading: true, vertexColors: true }),
-    flame: new T.MeshBasicMaterial({ color: 0xff8a2a, transparent: true, opacity: 0.85, blending: T.AdditiveBlending, depthWrite: false }),
+    flame: new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide }),
     beam: new T.MeshBasicMaterial({ color: 0x8cff3a, transparent: true, opacity: 0.3, blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide }),
     ghost: new T.MeshBasicMaterial({ color: 0x8fe8ff, transparent: true, opacity: 0.28, blending: T.AdditiveBlending, depthWrite: false }),
   }));
@@ -382,9 +416,10 @@ function shared(ctx) {
 function paintMaterial(ctx, paintId) {
   const p = cat().PAINTS[paintId] || cat().PAINTS['#e53935'], maps = paintMaps(ctx, p);
   const textured = p.kind === 'pattern' || (p.kind === 'metal' && !!p.pattern);
-  const m = std(ctx, { color: textured ? 0xffffff : new T.Color(p.base), metalness: p.metal, roughness: p.rough,
+  const m = std(ctx, { color: textured || p.low ? 0xffffff : new T.Color(p.base), metalness: p.metal, roughness: p.rough,
     map: textured ? maps.map : grimeTex(ctx), envMapIntensity: p.kind === 'metal' ? 1.4 : 0.75 });
   if (maps.emissive) { m.emissiveMap = maps.emissive; m.emissive = new T.Color(p.glow); m.emissiveIntensity = 1.4; }
+  shade(m, p.low ? { rim: 0.45, low: p.low, high: p.base, stripe: p.stripe || '#ffb02e' } : { rim: 0.45 });
   m.userData.base = m.color.clone(); m.userData.rough = m.roughness;
   return m;
 }
@@ -568,7 +603,15 @@ function rails(k, d, y, x = d.tr * 0.28, len = d.wb + d.R * 1.8) {
 function lamps(k, z, y, x, r = 0.14, tint = 'light') {
   k.mir(s => { k.cyl('dark', s * x, y, z, r * 1.3, 0.14, 'z', { n: 8, tint: 'black' }); k.cyl('glow', s * x, y, z + 0.06, r, 0.05, 'z', { n: 8, tint }); });
 }
-function tails(k, z, y, x, w = 0.28, h = 0.14) { k.mir(s => k.box('glow', s * x, y, z, w, h, 0.05, { tint: 'tail', sharp: true })); }
+/* tail lights read first from the chase cam: a big lamp in a black bezel with a white-hot core */
+function tails(k, z, y, x, w = 0.28, h = 0.14) {
+  const W = Math.max(0.1, Math.min(w * 1.5, 2 * x - 0.2)), H = h * 1.7;
+  k.mir(s => {
+    k.box('dark', s * x, y, z + 0.03, W + 0.1, H + 0.1, 0.08, { tint: 'black', sharp: true });
+    k.box('glow', s * x, y, z - 0.015, W, H, 0.04, { tint: 'tail', sharp: true });
+    k.box('glow', s * x, y, z - 0.04, W * 0.45, H * 0.4, 0.02, { tint: 0xffc0a8, sharp: true });
+  });
+}
 function grille(k, z, y, w, h, bars = 4, key = 'chrome') {
   k.box('dark', 0, y, z, w, h, 0.12, { tint: 'black' });
   for (let i = 0; i < bars; i++) k.box(key, 0, y - h / 2 + (i + 0.5) * h / bars, z + 0.06, w * 0.92, h / bars * 0.38, 0.05, { sharp: true });
@@ -865,7 +908,7 @@ const BODY_DEFS = {
     k.side(1.28, 1.42, -1.6, 0.85); k.roundel(1.28, 1.4, 0.9, 0.55); k.hood(1.81, 3.25, 0.7);
     k.spot('roof', 0, 3.0, -0.6, 1.6, 2.0); k.spot('rear', 0, 2.4, -3.4);
   } },
-  ambulance: { build(k, d) {
+  ambulance: { skip: 'bar', build(k, d) {
     rails(k, d, 0.75, 0.45);
     truckCab(k, d, 1.95, 2.3, 0.88, 1.4, 1.1);
     k.box('paint', 0, 1.78, -0.78, 2.42, 1.95, 3.9, { tint: P2 });
@@ -1068,7 +1111,7 @@ const BODY_DEFS = {
     k.side(1.06, 0.62, 1.5, 0.42); k.roundel(1.1, 0.62, -0.3, 0.4); k.hood(0.98, 1.55, 0.8, -0.1);
     k.spot('rear', 0, 1.1, -2.3);
   } },
-  race: { fs: 0.62, rs: 1.45, build(k, d) {
+  race: { skip: 'wing', fs: 0.62, rs: 1.45, build(k, d) {
     k.tb('paint', 0, 0.55, 0.3, 0.72, 0.4, 4.6, 0.7, 0.9);
     k.cone('paint', 0, 0.55, 2.9, 0.26, 0.6, '+z', { n: 8, tint: P2 });
     k.rod('steel', [1.0, 0.26, 2.4], [-1.0, 0.26, 2.4], 0.05, { tint: 'darksteel' });
@@ -1088,7 +1131,7 @@ const BODY_DEFS = {
     k.side(0.36, 0.55, 1.6, 0.34); k.roundel(0.37, 0.56, -1.5, 0.32); k.hood(0.76, 1.4, 0.5);
     k.spot('roof', 0, 1.3, -0.6, 0.5, 0.4); k.spot('rear', 0, 1.7, -2.4); k.spot('hood', 0, 1.6, 0.45, 0.5, 0.6);
   } },
-  rocket: { build(k, d) {
+  rocket: { skip: 'wing', build(k, d) {
     k.cyl('paint', 0, 0.75, -0.2, 0.5, 3.6, 'z', { n: 10 });
     k.cone('paint', 0, 0.75, 2.2, 0.5, 1.2, '+z', { n: 10, tint: P2 });
     k.cone('chrome', 0, 0.75, 2.86, 0.06, 0.2, '+z', { n: 6 });
@@ -1156,7 +1199,7 @@ const BODY_DEFS = {
     k.spot('rear', 0, 1.06, -1.8); k.spot('hood', 0, 1.8, 1.15, 0.5, 0.7);
   } },
   /* ---- hovers ---- */
-  ufo: { hover: true, build(k, d) {
+  ufo: { skip: 'fins', hover: true, build(k, d) {
     k.cyl('paint', 0, 1.05, 0, 2.1, 0.36, 'y', { n: 16, r2: 0.55 });
     k.cyl('paint', 0, 0.75, 0, 1.2, 0.26, 'y', { n: 16, r2: 1.75, tint: P2 });
     k.cyl('steel', 0, 0.89, 0, 2.12, 0.12, 'y', { n: 16, tint: 'darksteel' });
@@ -1303,6 +1346,98 @@ const BODY_DEFS = {
   } },
 };
 function boltRingZ(k, n, R, y, z) { for (let i = 0; i < n; i++) { const a = i / n * TAU; k.ball('chrome', Math.cos(a) * R, y + Math.sin(a) * R, z, 0.04, { tint: 'steel' }); } }
+
+/* ---- class signatures: the bolt-ons every machine of a class wears, so a class reads at a glance from the
+   chase cam. brute: roof spotlight pods and hazard mud flaps; hauler: a heavy bull bar and twin flame
+   stacks; racer: a hood scoop, a big rear wing and twin rear pipes; tank: riveted armour skirts; hover: rear
+   thruster rings and tail fins; freak: flame-spitting zoomie pipes and a spiked roof crown. A body opts out
+   of a piece with def.skip (a space-separated list), where its own design already does that job. ---- */
+function spotPod(k, x, y, z, r) {
+  k.cyl('chrome', x, y, z, r, r * 1.2, 'z', { n: 10, tint: 'blackchrome' });
+  k.ring('chrome', x, y, z + r * 0.6, r * 0.92, 'z', { t: 0.16, n: 10 });
+  k.cyl('glow', x, y, z + r * 0.62, r * 0.8, 0.02, 'z', { n: 10, tint: 'light' });
+  k.rod('dark', [x, y - r, z], [x, y - r - 0.16, z], 0.04, { tint: 'black' });
+}
+const SIGNATURE = {
+  brute(k, S, d, b, skip) {
+    const r = S.roof;
+    if (!skip.includes('pods')) {
+      const x = Math.min(r.w * 0.42, 0.62), z = r.z + r.l * 0.4, y = r.y + 0.06;
+      k.box('dark', 0, y + 0.06, z, x * 2 + 0.36, 0.08, 0.12, { tint: 'black', sharp: true });
+      k.mir(s => spotPod(k, s * x, y + 0.3, z, 0.17));
+    }
+    if (!skip.includes('flaps')) k.mir(s => {
+      const x = s * d.tr / 2, z = d.rz - d.R * 1.05 - 0.06;
+      k.box('dark', x, d.R * 0.95, z, d.ww * 0.9, d.R * 0.8, 0.05, { tint: 'black', sharp: true });
+      k.box('hazard', x, d.R * 0.7, z - 0.03, d.ww * 0.9, d.R * 0.24, 0.02, { sharp: true });
+      k.rod('dark', [x, d.R * 1.4, z], [x * 0.55, d.R * 1.5, z + 0.25], 0.035, { tint: 'chassis' });
+    });
+  },
+  hauler(k, S, d, b, skip) {
+    if (!skip.includes('bar')) {
+      const z = d.L / 2 + 0.3, y0 = d.rh + 0.1, y1 = d.rh + 1.05, w = d.W * 0.86;
+      bullbar(k, z, y0, y1, w, 0.075);
+      k.box('hazard', 0, y0 + 0.12, z + 0.05, w * 0.98, 0.2, 0.1, { sharp: true });
+      k.mir(s => k.rod('steel', [s * w * 0.45, y0 + 0.2, z], [s * w * 0.45, y0 + 0.2, z - 0.42], 0.06, { tint: 'darksteel' }));
+    }
+    if (!skip.includes('stacks') && k.exhaust.filter(e => e.dir[1] > 0.5).length < 2) {
+      const r = S.roof, z = r.z - r.l * 0.5 - 0.15, x = Math.min(d.W / 2 - 0.12, r.w * 0.62 + 0.18);
+      k.mir(s => stack(k, s * x, r.y - 0.9, z, 1.55, 0.11, true));
+    }
+  },
+  racer(k, S, d, b, skip) {
+    const h = S.hood, rr = S.rear;
+    if (!skip.includes('scoop')) {
+      k.tb('paint', h.x, h.y + 0.12, h.z, 0.62, 0.24, 0.8, 0.8, 0.7, -0.15, { tint: P2 });
+      k.box('dark', h.x, h.y + 0.14, h.z + 0.38, 0.48, 0.14, 0.04, { tint: 'black', sharp: true });
+      k.box('glow', h.x, h.y + 0.13, h.z + 0.39, 0.4, 0.05, 0.02, { tint: 'hot', sharp: true });
+    }
+    if (!skip.includes('wing') && !b.extras.spoiler) {
+      const y = rr.y + 0.55, z = rr.z + 0.25, w = d.W * 1.0;
+      k.box('dark', 0, y, z, w, 0.07, 0.55, { tint: 'black', rx: -0.12 });
+      k.box('hazard', 0, y + 0.045, z - 0.2, w * 0.98, 0.02, 0.12, { sharp: true, rx: -0.12 });
+      k.mir(s => { k.box('paint', s * w / 2, y + 0.02, z, 0.05, 0.36, 0.7, { tint: P2 }); k.rod('steel', [s * w * 0.25, rr.y, z + 0.2], [s * w * 0.25, y - 0.03, z + 0.05], 0.04, { tint: 'darksteel' }); });
+    }
+    if (!skip.includes('pipes') && !k.exhaust.some(e => e.dir[2] < -0.5)) k.mir(s => rearPipe(k, s * 0.3, d.rh + 0.18, -d.L / 2 + 0.15, 0.3, 0.1));
+  },
+  tank(k, S, d, b, skip) {
+    if (skip.includes('skirts')) return;
+    const x = Math.max(d.W / 2, d.tr / 2 + Math.max(d.ww, 0.8) / 2) + 0.06, y = d.R * 1.55, h = d.R * 0.8, len = d.wb * 0.92 + d.R;
+    k.mir(s => {
+      /* all on 'dark' (tinted): a tracked machine is already near the draw-call budget */
+      k.box('dark', s * x, y, 0, 0.08, h, len, { tint: 'darksteel', c: 0.06 });
+      for (const f of [0.38, -0.38]) k.rivets('dark', [s * (x + 0.045), y + h * f, -len * 0.44], [s * (x + 0.045), y + h * f, len * 0.44], 6, 0.04, { tint: 'steel' });
+      k.box('hazard', s * (x + 0.045), y - h * 0.32, len / 2 - 0.25, 0.02, h * 0.3, 0.5, { sharp: true });
+      k.box('hazard', s * (x + 0.045), y - h * 0.32, -len / 2 + 0.25, 0.02, h * 0.3, 0.5, { sharp: true });
+    });
+  },
+  hover(k, S, d, b, skip) {
+    const rr = S.rear;
+    if (!skip.includes('thrust')) k.mir(s => {
+      const x = s * d.W * 0.3, y = rr.y, z = rr.z + 0.1;
+      k.cyl('dark', x, y, z + 0.3, 0.26, 0.6, 'z', { n: 10, tint: 'gun' });
+      k.ring('chrome', x, y, z, 0.27, 'z', { t: 0.2, n: 10 });
+      k.cyl('glow', x, y, z - 0.01, 0.2, 0.02, 'z', { n: 10, tint: 'cyan' });
+      k.pipe([x, y, z - 0.02], [0, 0, -1], 1.3);
+    });
+    if (!skip.includes('fins')) k.mir(s => k.tb('paint', s * d.W * 0.3, rr.y + 0.45, rr.z + 0.4, 0.06, 0.6, 0.8, 1, 0.35, -0.35, { tint: P2 }));
+  },
+  freak(k, S, d, b, skip) {
+    if (!skip.includes('zoomies')) k.mir(s => {
+      const x = s * (d.W / 2 + 0.06), y = d.rh + 0.55, z = d.L * 0.12;
+      for (let i = 0; i < 3; i++) {
+        const zi = z - i * 0.28, a = [x, y, zi], e = [x + s * 0.12, y + 0.42, zi - 0.32];
+        k.rod('chrome', a, e, 0.055, { tint: 'chrome' });
+        k.cyl('glow', e[0], e[1], e[2], 0.04, 0.02, 'y', { tint: 'hot' });
+        if (i === 0) k.pipe(e, [s * 0.15, 0.7, -0.7], 0.8);
+      }
+    });
+    if (!skip.includes('crown')) {
+      const r = S.roof;
+      for (let i = 0; i < 3; i++) k.cone('steel', (i - 1) * Math.min(0.32, r.w * 0.3), r.y + 0.17, r.z + r.l * 0.3, 0.07, 0.34, '+y', { n: 5, tint: 'steel', rx: -0.3 });
+    }
+  },
+};
 
 /* ======================================================================================================
    7. extras (bolt-ons), buddies (roof mascots) and stencils
@@ -1473,11 +1608,16 @@ function dims(st, body, wheel) {
   return { L: b.size.l, W: b.size.w, H: b.size.h, wb: st.wheelbase, tr: st.track, R: b.wheelR, rh: b.rideH, fz: st.wheelbase / 2, rz: -st.wheelbase / 2,
     ww: wheel.width, lift: st.wheelR - b.wheelR };
 }
-function finishKit(k, parent, mats, rig) {
+function finishKit(k, parent, mats, rig, oy = 0) {
   const by = new Map();
   for (const p of k.parts) { if (!by.has(p.key)) by.set(p.key, []); by.get(p.key).push(p); }
   for (const [key, parts] of by) {
     const geo = merge(parts), mesh = new T.Mesh(geo, rig.ghost ? mats.ghost : (mats[key] || mats.dark));
+    if (key === 'paint') {   /* body-space height for the two-tone line (sub-assemblies add their pivot's) */
+      const P = geo.attributes.position, by2 = new Float32Array(P.count);
+      for (let i = 0; i < P.count; i++) by2[i] = P.array[i * 3 + 1] + oy;
+      geo.setAttribute('aBodyY', new T.BufferAttribute(by2, 1));
+    }
     rig.own.push(geo); mesh.name = key;
     mesh.castShadow = rig.shadows && !NOSHADOW.has(key);
     parent.add(mesh); rig.meshes.push(mesh);
@@ -1485,11 +1625,12 @@ function finishKit(k, parent, mats, rig) {
   }
   for (const s of k.subs) {
     const g = new T.Group(); g.name = s.name; g.position.set(s.at[0], s.at[1], s.at[2]); g.rotation.x = s.rx || 0;
-    parent.add(g); rig.parts[s.name] = g; finishKit(s, g, mats, rig);
+    parent.add(g); rig.parts[s.name] = g; finishKit(s, g, mats, rig, oy + s.at[1]);
   }
   rig.anims.push(...k.anims);
 }
-function flameGeo(ctx) { return memo(ctx, 'cars.g.flame', () => { const g = new T.ConeGeometry(0.5, 1, 8, 1, true); g.rotateX(Math.PI); g.translate(0, 0.5, 0); return g; }); }
+/* a flame: widest at the pipe, tapering to a point one unit out along +y */
+function flameGeo(ctx) { return memo(ctx, 'cars.g.flame', () => { const g = new T.ConeGeometry(0.5, 1, 8, 1, true); g.translate(0, 0.5, 0); return g; }); }
 function coiloverGeo(ctx) {
   return memo(ctx, 'cars.g.coilover', () => {
     const k = new Kit(ctx);
@@ -1516,9 +1657,11 @@ function buildCar(ctx, build, opts = {}) {
   S.hood = S.hood || { x: 0, y: d.H * 0.75, z: d.L * 0.3, w: d.W * 0.5, l: d.L * 0.2 };
   S.rear = S.rear || { x: 0, y: d.rh + 0.8, z: -d.L / 2 + 0.2 };
   S.nose = S.nose || { x: 0, y: d.rh + 0.35, z: d.L / 2 };
+  if (SIGNATURE[body.cls]) SIGNATURE[body.cls](k, S, d, build, def.skip || '');
   for (const id of Object.keys(build.extras)) if (build.extras[id] && EXTRA_BUILD[id]) EXTRA_BUILD[id](k, S, d, build);
   if (build.buddy) buddyKit(k, build.buddy, !!build.extras.partyhat, S.roof);
-  if (build.decal && build.decal !== 'none') for (const p of k.decals) {
+  const paintDef = cat().PAINTS[build.color], stencil = build.decal !== 'none' ? build.decal : (paintDef && paintDef.stencil) || 'none';
+  if (stencil !== 'none') for (const p of k.decals) {
     if (!(p.s > 0)) continue;
     if (p.top) k.put('decal', 'plane', p.x, p.y + 0.012, p.z, p.s * 1.2, p.s * 1.2, 1, { rx: -HP + (p.tilt || 0), ry: Math.PI, order: 'YXZ' });
     else k.put('decal', p.side > 0 ? 'plane' : 'planeF', p.side * (p.x + 0.014), p.y, p.z, p.s * 1.25, p.s * 1.25, 1, { ry: p.side * HP });
@@ -1527,11 +1670,11 @@ function buildCar(ctx, build, opts = {}) {
 
   const mats = { ...shared(ctx), paint: paintMaterial(ctx, build.color) };
   rig.own.push(mats.paint);
-  if (k.decals.length && build.decal !== 'none') { mats.decal = new T.MeshStandardMaterial({ map: decalTex(ctx, build.decal), transparent: true, alphaTest: 0.3, metalness: 0.3, roughness: 0.55, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }); rig.own.push(mats.decal); }
+  if (k.decals.length && stencil !== 'none') { mats.decal = new T.MeshStandardMaterial({ map: decalTex(ctx, stencil), transparent: true, alphaTest: 0.3, metalness: 0.3, roughness: 0.55, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }); rig.own.push(mats.decal); }
   if (build.number) { mats.roundel = new T.MeshStandardMaterial({ map: numberTex(ctx, build.number), transparent: true, alphaTest: 0.3, metalness: 0.1, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }); rig.own.push(mats.roundel); }
   if (def.tracked) {
     const tt = treadTex(ctx).clone(); tt.repeat.set(1, 6); tt.needsUpdate = true;
-    mats.track = new T.MeshStandardMaterial({ color: 0x9a9a9a, map: tt, metalness: 0.4, roughness: 0.8, flatShading: true, vertexColors: true });
+    mats.track = shade(new T.MeshStandardMaterial({ color: 0x9a9a9a, map: tt, metalness: 0.4, roughness: 0.8, flatShading: true, vertexColors: true }), { rim: 0.3 });
     rig.own.push(mats.track, tt); rig.trackTex = tt;
   }
 
@@ -1540,12 +1683,19 @@ function buildCar(ctx, build, opts = {}) {
   sway.position.y = pivotY; bodyG.position.y = -pivotY + d.lift;
   group.add(sway); sway.add(bodyG);
   finishKit(k, bodyG, mats, rig);
+  splitPaint(rig.meshes, mats.paint, def.split);
   /* a chase-cam fill so the machine pops against dark worlds (opts.fill === false turns it off) */
   if (opts.fill !== false && !rig.ghost) { const fl = new T.PointLight(0xffe6c8, opts.fill || 28, Math.max(9, d.L * 2), 1.4); fl.position.set(0, d.H + d.lift + 1.6, -d.L * 0.85); group.add(fl); }
 
   /* exhaust flames: one instance per outlet, in body space */
   let flames = null;
-  if (k.exhaust.length && !rig.ghost) { flames = new T.InstancedMesh(flameGeo(ctx), mats.flame, k.exhaust.length); flames.frustumCulled = false; bodyG.add(flames); }
+  const nX = k.exhaust.length;
+  if (nX && !rig.ghost) {   /* outer cone then white-hot core per outlet, one draw call: instance colours tint them */
+    flames = new T.InstancedMesh(flameGeo(ctx), mats.flame, nX * 2); flames.frustumCulled = false; bodyG.add(flames);
+    const cOut = new T.Color(0xff4a10), cCore = new T.Color(0xffe8a0);
+    for (let i = 0; i < nX; i++) { flames.setColorAt(i, cOut); flames.setColorAt(nX + i, cCore); }
+    flames.instanceColor.needsUpdate = true;
+  }
 
   /* wheels: four contract pivots, plus dummies for extra axles; one InstancedMesh per wheel material */
   const fs = def.fs || 1, rs = def.rs || 1, scl = def.tracked ? BODY_SCALE.tracks : 1, hover = !!def.hover;
@@ -1613,14 +1763,18 @@ function buildCar(ctx, build, opts = {}) {
     }
     /* flames */
     if (flames) {
+      /* boost: a long roaring cone with a white-hot core; high revs: short blue-orange pops */
       const boost = !!car.boosting, rpm = car.rpm || 0;
-      for (let i = 0; i < k.exhaust.length; i++) {
+      for (let i = 0; i < nX; i++) {
         const e = k.exhaust[i], fl = calm ? 0.5 : 0.5 + 0.5 * Math.sin(t * 61 + i * 2.3) * Math.sin(t * 23 + i);
-        const len = boost ? e.s * (1.1 + fl * 0.6) : (rpm > 0.7 ? e.s * (rpm - 0.7) * 1.6 * fl : 0);
-        tv.set(e.dir[0], e.dir[1], e.dir[2]).normalize(); tq.setFromUnitVectors(up, tv);
-        const wdt = len > 0 ? 0.14 + 0.08 * e.s : 1e-4;
-        tm.compose(tv2.set(e.p[0], e.p[1], e.p[2]), tq, ts.set(wdt, Math.max(1e-4, len), wdt));
-        flames.setMatrixAt(i, tm);
+        const len = boost ? e.s * (1.7 + fl * 0.9) : (rpm > 0.7 ? e.s * (rpm - 0.7) * 2.2 * fl : 0);
+        tv.set(e.dir[0], e.dir[1], e.dir[2]);
+        if (tv.y > 0.5) tv.z -= Math.min(0.9, Math.abs(sp) * 0.025);   /* stack flames lean back with speed */
+        tv.normalize(); tq.setFromUnitVectors(up, tv);
+        const wdt = len > 0 ? (0.24 + 0.1 * e.s) * (boost ? 1 + fl * 0.25 : 0.8) : 1e-4;
+        tv2.set(e.p[0], e.p[1], e.p[2]);
+        tm.compose(tv2, tq, ts.set(wdt, Math.max(1e-4, len), wdt)); flames.setMatrixAt(i, tm);
+        tm.compose(tv2, tq, ts.set(wdt * 0.5, Math.max(1e-4, len * 0.62), wdt * 0.5)); flames.setMatrixAt(nX + i, tm);
       }
       flames.instanceMatrix.needsUpdate = true;
     }
@@ -1756,6 +1910,7 @@ function partThumb(ctx, kind, id, build, px = 160) {
   for (const p of raw) g.add(new T.Mesh(p.geo, mats[p.key] || mats.dark));
   k.parts = k.parts.filter(p => !p.raw);
   finishKit(k, g, mats, rig);
+  splitPaint(rig.meshes, mats.paint, 0.45);
   if (kind === 'wheels') g.rotation.y = 0;
   const box = new T.Box3().setFromObject(g), ctr = box.getCenter(new T.Vector3()), sz = box.getSize(new T.Vector3());
   g.position.set(-ctr.x, 0, -ctr.z);

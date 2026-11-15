@@ -62,10 +62,13 @@ function go(id, p = {}) {
 
 /* ---- the race ---- */
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-/* the build a replay was driven with: a ghost only replays bit-exact in the same machine with the same upgrades */
+/* the build a replay was driven with: a ghost only replays bit-exact in the same machine with the same upgrades
+   and the same physics. SIM_REV goes up whenever sim.js or monsters.sim.js change how a replay drives
+   (14.1: the power slide and the station-keeping bosses), so an older ghost is dropped rather than drifting */
+const SIM_REV = 2;
 function buildKey() {
   const s = VROOM.save.state, u = VROOM.save.progress.upgrades;
-  return [s.body, s.wheels, Object.keys(s.extras).filter(k => s.extras[k]).sort().join('+'), C.LEGACY.UPGRADES.map(k => u[k] | 0).join('')].join('|');
+  return ['s' + SIM_REV, s.body, s.wheels, Object.keys(s.extras).filter(k => s.extras[k]).sort().join('+'), C.LEGACY.UPGRADES.map(k => u[k] | 0).join('')].join('|');
 }
 function carParams() {
   const s = VROOM.save.state, st = VROOM.catalog.stats(s), body = VROOM.catalog.BODIES[s.body];
@@ -81,7 +84,7 @@ function sfxFor(ev, st) {
     case 'boost': if (ev.on) A.sfx('boost'); break;
     case 'drift': if (ev.on) A.sfx('skid', { v: 0.7 }); break;
     case 'driftBank': A.sfx('whoosh', { p: 1.2 }); break;
-    case 'surface': if (C.SURF[ev.surf] === 'water') A.sfx('splash'); break;
+    case 'surface': A.sfx('surface', { kind: C.SURF[ev.surf], v: 0.7 }); break;
     case 'land': A.sfx(ev.hard > 0.5 ? 'landHard' : 'land', ev); break;
     case 'wall': A.sfx('wall', { v: clamp((ev.impulse || 4) / 12, 0.3, 1) }); break;
     case 'hit':
@@ -180,7 +183,9 @@ const race = {
     VROOM.ui.hud.update(st);
     /* the last stepped input: controls.read() advances the key steer ramp, so it is read once per tick only */
     const inp = this.bot ? null : this.lastInput;
-    VROOM.audio.engine.update({ rpm: c.rpm, load: inp ? inp.throttle : 1, speed: c.speed, boost: c.boosting, air: c.air, surf: c.surf });
+    let slip = 0;
+    for (const w of c.wheels) if (w.contact && w.slip > slip) slip = w.slip;
+    VROOM.audio.engine.update({ rpm: c.rpm, load: inp ? inp.throttle : 1, speed: c.speed, boost: c.boosting, air: c.air, surf: c.surf, drift: c.drift !== 0, slip });
     this.placeCamera(dt, false);
     if (st.finished && (this.doneT += dt) > 1.2) this.finish();
   },
@@ -231,7 +236,9 @@ const race = {
     const target = K.target.copy(pos).addScaledVector(K.fwd, -dist).addScaledVector(K.up, height);
     if (snap || K.pos.distanceTo(target) > 40) K.pos.copy(target); else K.pos.lerp(target, 1 - Math.exp(-dt * 10));
     K.look.copy(pos).addScaledVector(K.up, 0.5 + sz.h * 0.15).addScaledVector(K.fwd, 3);
-    /* a boss close by pulls the look toward it (up to a quarter of the way) so the chase reads on screen */
+    /* a boss close by pulls the look toward it (up to a quarter of the way) so the chase reads on screen.
+       14.1: the reach is 48 m (full pull inside 36 m) so a boss keeping station 14 to 30 m ahead, or roaring
+       in from behind, is framed the whole chase */
     let bossW = 0, bi = -1, bd = 1e9;
     const A = this.st.actors;
     for (let i = 0; i < A.length; i++) {
@@ -240,7 +247,7 @@ const race = {
       const d = r.group.position.distanceTo(pos);
       if (d < bd) { bd = d; bi = i; }
     }
-    if (bi >= 0 && bd < 32) bossW = bd < 25 ? 1 : (32 - bd) / 7;
+    if (bi >= 0 && bd < 48) bossW = bd < 36 ? 1 : (48 - bd) / 12;
     K.bias += (bossW - K.bias) * (snap ? 1 : 1 - Math.exp(-dt * 2.5));
     if (bi >= 0 && K.bias > 0.01) {
       const bp = this.mons[bi].group.position;

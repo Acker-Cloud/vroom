@@ -10,10 +10,12 @@
      roamer    runs, hops or drifts on the road ahead of the car, body-checks when the car closes in
      diver     circles high, its shadow marks the spot it will dive on, then skims the road
      burrower  a wake in the ground homes in on the car's lane, the ground cracks, it erupts
-     boss      the finale chase: enters behind the car, rubber-bands close, telegraphs attacks
-               (thrown debris, sweeps, rollers, eruptions, a leap ahead, a charge), never passes the
-               car except mid-leap, and is defeated at the flag. Ram it while it is dazed to chip its
-               hp; three rams smash it early. Either way it pays bonus stars (actor.bonus).
+     boss      the finale chase: roars past the car beside the road, then keeps station 14 to 30 m
+               AHEAD of it, off its line, where the chase camera sees it; telegraphs attacks (thrown
+               debris, sweeps, rollers, eruptions, a leap into the car's path, a charge in from beside
+               the road), never overlaps the car, is outrun over the last 150 m and defeated at the
+               flag. Ram it while it is dazed to chip its hp; three rams smash it early. Either way it
+               pays bonus stars (actor.bonus).
      debris    pooled boss and thrower ammunition, spawned once at race start, recycled forever
 
    Contact contract for src/sim.js (additive fields on ActorState, see open notes in the hand-off):
@@ -38,7 +40,7 @@ function def(kind, world, arche, o) {
   return Object.freeze({
     kind, world, arche, r: 1.2, h: 2, mass: 600, speed: 0, trigger: 38, tell: 0.75, lunge: 14, reach: 9, cooldown: 2.4,
     knock: kn(8, 3, 4, 0.45), bump: kn(4, 1, 1.5, 0.15), off: 3, tries: 2, pack: 1, spread: 4, fly: 0, hop: 0, drift: 0, chase: 0.9,
-    throws: null, style: 'walk', gap: 20, daze: 1.6, mode: null, peak: 0, life: 0, tether: false, ...o,
+    throws: null, style: 'walk', gap: 20, lead: 0, daze: 1.6, mode: null, peak: 0, life: 0, tether: false, ...o,
   });
 }
 
@@ -105,7 +107,7 @@ add(def('hulkchunk', 7, 'debris', { r: 1.6, h: 1.8, mass: 2000, mode: 'fall', pe
 /* ---- 8 Orbital Scrapheap ---- */
 add(def('voidgrub', 8, 'burrower', { r: 1.2, h: 2.4, mass: 500, speed: 8, trigger: 40, tell: 0.65, chase: 1.0, tries: 3, knock: kn(8, 8, 4, 0.45) }));
 add(def('droneswarm', 8, 'swarm', { r: 0.6, h: 0.6, mass: 40, fly: 1.4, lunge: 12, tell: 0.4, trigger: 36, pack: 5, spread: 3.6, off: 2.5, cooldown: 1.4, knock: kn(3, 2, 3, 0.15) }));
-add(def('starmaw', 8, 'boss', { r: 3.4, h: 6, mass: 30000, speed: 48, tell: 1.0, cooldown: 3.0, hp: 3, gap: 19, style: 'fly', fly: 4, knock: kn(12, 8, 6, 0.8), bump: kn(5, 3, 2, 0.25),
+add(def('starmaw', 8, 'boss', { r: 3.4, h: 6, mass: 30000, speed: 48, tell: 1.0, cooldown: 3.0, hp: 3, gap: 19, lead: 4, style: 'fly', fly: 4, knock: kn(12, 8, 6, 0.8), bump: kn(5, 3, 2, 0.25),
   attacks: [atk('throw', 3, 'voidorb', 3), atk('roll', 2, 'junkroller', 2), atk('leap', 2), atk('charge', 2)] }));
 add(def('voidorb', 8, 'debris', { r: 1.3, h: 1.4, mass: 300, mode: 'fall', peak: 12, life: 1.2, knock: kn(7, 8, 5, 0.45) }));
 add(def('junkroller', 8, 'debris', { r: 1.5, h: 3.0, mass: 1800, mode: 'roll', speed: 12, tell: 0.6, knock: kn(9, 6, 5, 0.5) }));
@@ -129,7 +131,7 @@ add(def('gobstop', 10, 'debris', { r: 1.6, h: 3.2, mass: 1600, mode: 'roll', spe
 /* ---- 11 Abyss Trench ---- */
 add(def('anglerlurk', 11, 'lurker', { r: 1.6, h: 2.2, mass: 1100, lunge: 13, reach: 9, off: 3.5, tell: 0.9, knock: kn(9, 4, 5, 0.5) }));
 add(def('jellymine', 11, 'roamer', { r: 1.1, h: 1.8, mass: 50, drift: 1, fly: 1.4, trigger: 60, tell: 0.5, pack: 3, spread: 14, cooldown: 1.5, knock: kn(5, 6, 6, 0.4) }));
-add(def('trenchleviathan', 11, 'boss', { r: 3.4, h: 6, mass: 48000, speed: 44, tell: 1.05, cooldown: 3.2, hp: 3, gap: 20, style: 'swim', fly: 2, knock: kn(12, 6, 6, 0.8), bump: kn(6, 2, 2, 0.25),
+add(def('trenchleviathan', 11, 'boss', { r: 3.4, h: 6, mass: 48000, speed: 44, tell: 1.05, cooldown: 3.2, hp: 3, gap: 20, lead: 4, style: 'swim', fly: 2, knock: kn(12, 6, 6, 0.8), bump: kn(6, 2, 2, 0.25),
   attacks: [atk('sweep', 3, 'tidesurge'), atk('erupt', 2, 'ventspout', 2), atk('leap', 2), atk('charge', 1)] }));
 add(def('tidesurge', 11, 'debris', { r: 1.9, h: 2.4, mass: 1200, mode: 'sweep', lunge: 13, tell: 1.0, knock: kn(8, 4, 5, 0.5) }));
 add(def('ventspout', 11, 'debris', { r: 1.4, h: 5, mass: 600, mode: 'erupt', tell: 0.9, life: 0.7, knock: kn(8, 7, 4, 0.5) }));
@@ -137,7 +139,7 @@ add(def('ventspout', 11, 'debris', { r: 1.4, h: 5, mass: 600, mode: 'erupt', tel
 /* ---- 12 Storm Citadel ---- */
 add(def('gargohawk', 12, 'diver', { r: 1.4, h: 1.5, mass: 900, fly: 16, speed: 54, trigger: 64, tell: 0.85, tries: 3, cooldown: 1.2, knock: kn(9, 4, 5, 0.5) }));
 add(def('cloudwraith', 12, 'roamer', { r: 1.3, h: 2.6, mass: 200, fly: 1.2, speed: 30, trigger: 70, tell: 0.4, lunge: 11, cooldown: 1.4, pack: 2, spread: 10, knock: kn(7, 4, 5, 0.4) }));
-add(def('tempestwyrm', 12, 'boss', { r: 3.4, h: 6, mass: 55000, speed: 50, tell: 0.9, cooldown: 2.7, hp: 3, gap: 18, style: 'fly', fly: 5, knock: kn(14, 6, 7, 0.85), bump: kn(6, 2, 2, 0.25),
+add(def('tempestwyrm', 12, 'boss', { r: 3.4, h: 6, mass: 55000, speed: 50, tell: 0.9, cooldown: 2.7, hp: 3, gap: 18, lead: 5, style: 'fly', fly: 5, knock: kn(14, 6, 7, 0.85), bump: kn(6, 2, 2, 0.25),
   attacks: [atk('throw', 3, 'boltstrike', 3), atk('sweep', 2, 'stormfront'), atk('leap', 2), atk('charge', 2)] }));
 add(def('boltstrike', 12, 'debris', { r: 1.5, h: 8, mass: 100, mode: 'fall', peak: 30, life: 0.9, knock: kn(8, 6, 6, 0.5) }));
 add(def('stormfront', 12, 'debris', { r: 1.8, h: 2.6, mass: 800, mode: 'sweep', lunge: 17, tell: 0.9, knock: kn(8, 4, 6, 0.5) }));
@@ -563,26 +565,42 @@ function pickMove(a, K, ctx) {
   return m;
 }
 function restH(a, K) { return K.style === 'fly' ? K.fly + 0.8 * M.dsin(a.phase * 1.6) : K.style === 'swim' ? K.fly + 0.5 * M.dsin(a.phase * 1.1) : K.style === 'burrow' ? -K.h * 0.45 : 0; }
-/* the chase. Mostly on the road behind the car; every so often a surge brings it level with the car OFF the
-   road beside it (so the chase camera sees it roar past), never on the road ahead of the car. */
-function chaseMove(a, K, ctx, v, hw) {
+const END_RUN = 150;          /* over the last metres before the flag the boss is outrun and drops back */
+/* the chase. The boss keeps station AHEAD of the car (14 to 30 m, inside the chase camera's frame), off the
+   car's line; `along` brings it level with the car beside the road instead (a charge's wind-up). Behind or level
+   with the car it runs up beside the road, and a body never overlaps the car: within 12 m along the road it is
+   held at least r + 2 m to the side. Near the flag it is outrun: it drops back beside the road and loses. */
+function chaseMove(a, K, ctx, v, hw, along) {
   const car = ctx.car, dt = ctx.dt, fin = finishS(ctx.track);
-  a.surgeT -= dt;
-  if (a.surgeT <= -K.cooldown * 2.6 && car.s < fin - 220 && car.s > 80) { a.surgeT = 2.6; a.side = car.d > 0 ? -1 : 1; }
-  const surging = a.surgeT > 0, outside = a.side * (hw + K.r * 0.95);
-  const G = surging ? -2 : (a.enraged ? K.gap - 5 : K.gap) + 6 * M.dsin(a.phase * 0.6);
-  a.vs = clamp(v + (car.s - G - a.s) * (surging ? 1.0 : 1.4), 0, Math.max(K.speed, v + 28));
-  /* beside the road it may draw level; on the road it stays behind the car */
-  const beside = Math.abs(a.d) > hw + K.r * 0.5;
-  a.s = Math.min(a.s + a.vs * dt, beside ? car.s + 4 : car.s - K.r - 5);
-  const behind = a.s < car.s - K.r - 5;
-  const want = surging ? outside : behind ? car.d * 0.7 : a.d;
-  a.vd = clamp((want - a.d) * 1.6, -7, 7);
+  const end = clamp((car.s - (fin - END_RUN)) / END_RUN, 0, 1);
+  /* serpents (lead > 0) trail a body some 28 m long: they keep station further up the road and beside it, so
+     the body clears the car and the chase camera */
+  const Gs = (a.enraged ? K.gap - 4 : K.gap) + K.lead + 4 * M.dsin(a.phase * 0.6);
+  const tgt = along ? car.s + 2 : car.s + Gs - (Gs + 14) * end;
+  a.vs = clamp(v + (tgt - a.s) * 1.4, -6, Math.max(K.speed, v + 28));
+  a.s += a.vs * dt;
+  const out = a.side * (hw + K.r * 0.95), ahead = a.s > car.s + K.r + 4;
+  let want = out;
+  if (ahead && !along && end === 0 && !K.lead) {
+    want = clamp(car.d + a.side * (K.r + 2), -hw - K.r * 0.6, hw + K.r * 0.6);
+    if (Math.abs(want - car.d) < K.r + 1.5 && a.s > car.s + 14) a.side = -a.side;
+  }
+  a.vd = clamp((want - a.d) * 1.8, -8, 8);
   a.d += a.vd * dt;
-  if (!surging && behind) a.d = clamp(a.d, -hw - K.r, hw + K.r);
-  if (!beside && !surging) a.d = clamp(a.d, -hw + K.r * 0.7, hw - K.r * 0.7);
+  const ds = a.s - car.s, dd = a.d - car.d, keep = K.r + 2;
+  if (ds > -12 && ds < 12 && Math.abs(dd) < keep) a.d = car.d + (dd >= 0 ? keep : -keep);
+  a.surgeT = Math.abs(a.d) > hw + K.r * 0.5 && Math.abs(ds) < 12 ? 1 : Math.max(0, a.surgeT - dt);
   a.h += (restH(a, K) - a.h) * Math.min(1, 3 * dt);
   face(a, ctx, Math.max(1, a.vs), a.vd * 0.3, 4);
+}
+/* a boss charge: from beside the road it swings in across the car's half of it, carried along at the speed it
+   had when it launched (brake or boost to slip it), and stops short of the far half (steer across to dodge) */
+function charging(a, K, ctx, hw) {
+  a.hot = true; a.knock = K.knock; a.mark = 0;
+  a.s += a.fs * ctx.dt; a.vs = a.fs;
+  a.vd = -a.side * 13; a.d += a.vd * ctx.dt;
+  face(a, ctx, 1, -a.side * 0.8, 6);
+  if (a.side * a.d <= K.r * 0.9 || a.stateT > 1.2) { set(a, 'recover'); a.hot = false; }
 }
 function boss(a, K, ctx) {
   const car = ctx.car, v = carV(ctx), dt = ctx.dt, T = ctx.track, fin = finishS(T), hw = hwAt(ctx, a.s);
@@ -597,39 +615,50 @@ function boss(a, K, ctx) {
   if (a.state === 'idle') {
     a.hot = false; a.h = -40;
     if (car.s > 45) {
-      a.s = Math.max(0, car.s - 48); a.d = clamp(car.d * 0.5, -hw + K.r, hw - K.r); a.h = restH(a, K); a.vs = v;
-      set(a, 'chase'); a.cd = K.cooldown * 0.6; ctx.emit('boss', { a: a.i, what: 'enter' });
+      /* enter from behind, beside the road, and roar past the car into station ahead */
+      a.side = car.d > 0 ? -1 : 1;
+      a.s = Math.max(0, car.s - 40); a.d = a.side * (hw + K.r * 0.95); a.h = restH(a, K); a.vs = v;
+      set(a, 'chase'); a.cd = K.cooldown * 0.9; ctx.emit('boss', { a: a.i, what: 'enter' });
     }
     return;
   }
-  /* respawned behind the boss (the crane put the car back): the boss drops back and re-enters */
-  if ((a.state === 'chase' || a.state === 'tell') && a.s > car.s - 3 && (a.s > car.s + 12 || Math.abs(a.d) < hw + K.r * 0.5)) {
-    a.s = Math.max(0, car.s - 48); a.vs = v; set(a, 'chase'); ctx.emit('boss', { a: a.i, what: 'enter' });
+  /* the crane put the car back far behind the boss: it re-enters from behind */
+  if ((a.state === 'chase' || a.state === 'tell' || a.state === 'recover') && a.s > car.s + 70) {
+    a.side = car.d > 0 ? -1 : 1;
+    a.s = Math.max(0, car.s - 40); a.d = a.side * (hw + K.r * 0.95); a.vs = v; a.mark = 0;
+    set(a, 'chase'); ctx.emit('boss', { a: a.i, what: 'enter' });
   }
   switch (a.state) {
     case 'chase':
-      a.hot = false; a.mark = 0; chaseMove(a, K, ctx, v, hw);
+      a.hot = false; a.mark = 0; chaseMove(a, K, ctx, v, hw, false);
       a.cd -= dt;
       if (a.cd <= 0 && car.s > 60 && car.s < fin - 170 && K.attacks && K.attacks.length) {
         const m = pickMove(a, K, ctx);
-        a.move = m.move; a.flyT = m.n; set(a, 'tell'); a.tellT = bossTell(a, K);
+        a.move = m.move; a.flyT = m.n; set(a, 'tell'); a.tellT = bossTell(a, K) + (m.move === 'charge' ? 1.3 : 0);
+        if (m.move === 'charge') a.side = a.d >= car.d ? 1 : -1;   /* it winds up on the side it is on: it never crosses the car's nose */
         ctx.emit('boss', { a: a.i, what: 'roar', move: m.move });
         a.atk = K.attacks.indexOf(m);
       }
       break;
     case 'tell':
-      a.hot = false; chaseMove(a, K, ctx, v, hw);
-      if (a.stateT >= a.tellT) launch(a, K, ctx, K.attacks[a.atk]);
+      a.hot = false;
+      if (a.move === 'charge') {
+        /* the wind-up: drop back level with the car beside the road, ring the half of the road it will sweep */
+        chaseMove(a, K, ctx, v, hw, true);
+        mark(a, 1, a.s, a.side * Math.max(1, hw - 2.5));
+        const ready = Math.abs(a.d) > hw + K.r * 0.5 && Math.abs(a.s - car.s) < 8;
+        if (a.stateT >= a.tellT && ready && car.s < fin - 120) launch(a, K, ctx, K.attacks[a.atk]);
+        else if (a.stateT >= a.tellT + 1.5 || car.s >= fin - 120) { set(a, 'chase'); a.mark = 0; a.cd = K.cooldown * 0.5; }
+      } else {
+        chaseMove(a, K, ctx, v, hw, false);
+        if (a.stateT >= a.tellT) launch(a, K, ctx, K.attacks[a.atk]);
+      }
       break;
     case 'attack':
-      if (a.move === 'leap') leapFly(a, K, ctx, true);
-      else if (a.move === 'back') leapFly(a, K, ctx, false);
-      else if (a.move === 'charge') {
-        a.hot = true; a.knock = K.knock;
-        a.vs = v + 15; a.s += a.vs * dt; face(a, ctx, 1, 0, 4);
-        if (a.s >= car.s + 0.5 || a.stateT > 1.5) { set(a, 'recover'); a.hot = false; a.s = Math.min(a.s, car.s - 1); }
-      } else {
-        a.hot = false; chaseMove(a, K, ctx, v, hw);
+      if (a.move === 'leap') leapFly(a, K, ctx);
+      else if (a.move === 'charge') charging(a, K, ctx, hw);
+      else {
+        a.hot = false; chaseMove(a, K, ctx, v, hw, false);
         if (a.stateT >= 0.7) { set(a, 'chase'); a.cd = K.cooldown * (0.8 + 0.4 * ctx.rand()) * (a.enraged ? 0.75 : 1); }
       }
       break;
@@ -637,19 +666,16 @@ function boss(a, K, ctx) {
       /* dazed after a leap: down on the road ahead of the car, rammable */
       a.hot = a.stateT > 0.3; a.knock = K.bump; a.vs = 0; a.mark = 0;
       if (a.stateT < 0.3) { a.hot = true; a.knock = K.knock; }
-      if (a.stateT >= K.daze || car.s > a.s + K.r + 6) { set(a, 'recover'); a.hot = false; }
+      if (a.stateT >= K.daze || car.s > a.s + K.r + 6) {
+        set(a, 'recover'); a.hot = false;
+        if (a.s < car.s + K.r + 4) a.side = car.d > a.d ? -1 : 1;   /* passed: get back up beside the road, away from the car */
+      }
       break;
     case 'recover':
+      /* back out to station (from a charge or a daze): beside the road first when it is level with or behind the car */
       a.hot = false; a.mark = 0;
-      if (a.s > car.s + 2) {
-        /* still in front of the car: leap back over it to take up the chase from behind */
-        a.move = 'back'; a.fs = a.s; a.fd = a.d; a.fh = a.h;
-        a.ts = Math.max(0, car.s - 32); a.td = clamp(car.d * 0.5, -hw + K.r, hw - K.r); a.tellT = 0.9;
-        set(a, 'attack');
-      } else {
-        a.vs = Math.max(0, v - 8); a.s += a.vs * dt; a.h += (restH(a, K) - a.h) * Math.min(1, 3 * dt);
-        if (a.stateT >= 0.6) { set(a, 'chase'); a.cd = K.cooldown * (0.8 + 0.4 * ctx.rand()) * (a.enraged ? 0.75 : 1); }
-      }
+      chaseMove(a, K, ctx, v, hw, false);
+      if (a.stateT >= 0.6) { set(a, 'chase'); a.cd = K.cooldown * (0.8 + 0.4 * ctx.rand()) * (a.enraged ? 0.75 : 1); }
       break;
     default: a.hot = false;
   }
@@ -665,7 +691,7 @@ function launch(a, K, ctx, m) {
     mark(a, 1, a.ts, a.td);
     return;
   }
-  if (m.move === 'charge') { a.d = clamp(car.d, -hwAt(ctx, a.s) + K.r * 0.7, hwAt(ctx, a.s) - K.r * 0.7); ctx.emit('boss', { a: a.i, what: 'attack', move: 'charge' }); return; }
+  if (m.move === 'charge') { a.fs = v; a.mark = 0; ctx.emit('boss', { a: a.i, what: 'attack', move: 'charge' }); return; }
   const n = a.enraged ? m.n + 1 : m.n;
   for (let k = 0; k < n; k++) {
     const p = a.pool ? freeOf(a.pool, m.debris) : null;
@@ -689,18 +715,14 @@ function launch(a, K, ctx, m) {
   }
   ctx.emit('boss', { a: a.i, what: 'attack', move: m.move });
 }
-function leapFly(a, K, ctx, hostile) {
+function leapFly(a, K, ctx) {
   const u = Math.min(1, a.stateT / a.tellT), e = ease(u);
   a.s = a.fs + (a.ts - a.fs) * e; a.d = a.fd + (a.td - a.fd) * e;
   const base = a.fh * (1 - u), arc = 4 * u * (1 - u);
-  a.h = K.style === 'burrow' && hostile ? base - 9 * arc : base + (hostile ? 12 : 16) * arc;
+  a.h = K.style === 'burrow' ? base - 9 * arc : base + 12 * arc;
   a.hot = false;
   face(a, ctx, a.ts >= a.fs ? 1 : -1, 0, 3);
-  if (u >= 1) {
-    a.h = 0;
-    if (hostile) { set(a, 'stagger'); a.mark = 0; ctx.emit('boss', { a: a.i, what: 'attack', move: 'stomp' }); }
-    else { a.h = restH(a, K); set(a, 'chase'); a.cd = K.cooldown * (a.enraged ? 0.75 : 1); a.mark = 0; }
-  }
+  if (u >= 1) { a.h = 0; set(a, 'stagger'); a.mark = 0; ctx.emit('boss', { a: a.i, what: 'attack', move: 'stomp' }); }
 }
 
 /* ---------- the public face ---------- */

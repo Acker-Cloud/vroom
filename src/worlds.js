@@ -49,10 +49,12 @@ const LOOK = {
        key: ['#bfe0ff', 1.5], rim: ['#8fd8ff', 1.0], floor: 'water', floorC: ['#0b2230', '#123444'], bank: ['#3a4048', '#2a2e34', '#4a5058'], stars: 0,
        road: 'pier', roadC: ['#2c3036', '#1a1c20'], kerb: ['#f2b705', '#111214'], wall: 'hazard', clouds: ['#2a3a48', 18],
        sets: ['containerStack', 'bollardRow', 'dockCrane', 'lampPost', 'crateStack', 'warehouse', 'buoy'], over: 'gantrycrane', land: 'docks', wx: 'rain' },
-  5: { sky: ['#06090e', '#1a222c', '#3a4652', '#5a6672'], fog: ['#2a343e', 22, 280], sun: ['#bfd8f0', 0.3, 5.4, 50, 0.3], hemi: ['#6a88a0', '#0a1018', 0.9],
-       key: ['#a8c4dc', 1.1], rim: ['#4cc3f0', 1.3], floor: 'rock', floorC: ['#121a24', '#1a2430'], bank: ['#26323e', '#18222c', '#3a4856'], stars: 0,
-       road: 'snow', roadC: ['#5a6a78', '#26303a'], kerb: ['#b3200f', '#141618'], wall: 'snowbank', clouds: ['#2a3440', 20],
-       sets: ['pine', 'iceSpikes', 'frozenRig', 'chainPost', 'deadCar', 'iceFall', 'scrapPile'], over: 'icearch', land: 'peaks', wx: 'snow' },
+  /* frostbite pass: a frozen iron pass in a night blizzard. Blue-black ice, dark iron and frozen rust, lit by
+     sodium lamps (the warm rim and the low amber band in the sky are their glow off the snow cloud) */
+  5: { sky: ['#010204', '#060b12', '#141c26', '#3a2814'], fog: ['#121820', 16, 230], sun: ['#8aa0b4', 0.32, 5.4, 34, 0.2], hemi: ['#4a6074', '#3a2010', 1.0],
+       key: ['#8ea8c0', 0.95], rim: ['#ff9a32', 1.5], floor: 'rock', floorC: ['#090c11', '#0e131a'], bank: ['#1a2029', '#10151b', '#2a333e'], stars: 0,
+       road: 'frostiron', roadC: ['#2c323a', '#12161b'], kerb: ['#b3200f', '#141618'], wall: 'frostiron', clouds: ['#10161e', 22],
+       sets: ['sodiumLamp', 'iceSpikes', 'frozenRig', 'chainPost', 'deadPine', 'iceFall', 'rustTank'], over: 'icearch', land: 'peaks', wx: 'blizzard' },
   6: { sky: ['#2a5a90', '#7aa6c4', '#f2dca4', '#fff6d6'], fog: ['#e8ca8e', 40, 440], sun: ['#ffffff', 0.9, 2.2, 120, 1.4], hemi: ['#ffe4a8', '#a06020', 1.0],
        key: ['#fff0c4', 3.0], rim: ['#ffd36b', 0.8], floor: 'sand', floorC: ['#d6a650', '#c4923e'], bank: ['#dcae5c', '#c08c3c', '#e8c070'], stars: 0,
        road: 'cracked', roadC: ['#7a6a5a', '#4a3e34'], kerb: ['#f4f6fa', '#d8322a'], wall: 'rail', clouds: ['#f4e4c0', 6],
@@ -127,6 +129,22 @@ function paintRoad(style, P, emissive) {
         if (style === 'plate') for (let y = 0; y < h; y += 64) { g.fillStyle = rgba('#f2b705', 0.75); g.fillRect(w / 2 - 4, y, 8, 34); }
         if (style === 'iron') for (let y = 20; y < h; y += 128) { g.fillStyle = rgba(ACCENT[12][1], 0.6); g.beginPath(); g.moveTo(w / 2 - 30, y + 30); g.lineTo(w / 2, y); g.lineTo(w / 2 + 30, y + 30); g.lineTo(w / 2 + 30, y + 44); g.lineTo(w / 2, y + 14); g.lineTo(w / 2 - 30, y + 44); g.fill(); }
       }
+    } else if (style === 'frostiron') {
+      /* dark iron deck plates, frost packed into the seams, frozen rust bleeding from the bolts, dirty slush ruts */
+      if (!emissive) {
+        for (let i = 0; i < 16; i++) blot(g, R() * w, R() * h, 16 + R() * 46, 'rgba(118,52,20,A)', 0.42);
+        for (let i = 0; i < 10; i++) blot(g, R() * w, R() * h, 20 + R() * 40, 'rgba(6,10,16,A)', 0.55);
+        for (let y = 0; y <= h; y += h / 4) for (let x = kerbW; x <= w - kerbW; x += (w - 2 * kerbW) / 3) {
+          g.fillStyle = rgba('#000000', 0.55); g.fillRect(x - 2, 0, 4, h); g.fillRect(0, y - 2, w, 4);
+          g.fillStyle = rgba('#8a9cac', 0.3); g.fillRect(x - 1, 0, 2, h); g.fillRect(0, y - 1, w, 2);
+        }
+        for (let y = 8; y < h; y += h / 4) for (let x = kerbW + 10; x < w - kerbW; x += 26) { g.fillStyle = rgba('#000', 0.6); g.beginPath(); g.arc(x, y + 6, 2.6, 0, TAU); g.fill(); blot(g, x, y + 12, 7, 'rgba(150,64,22,A)', 0.5); }
+        for (const x of [w * 0.3, w * 0.42, w * 0.58, w * 0.7]) { const gr = g.createLinearGradient(x - 12, 0, x + 12, 0); gr.addColorStop(0, rgba('#8a98a4', 0)); gr.addColorStop(0.5, rgba('#8a98a4', 0.32)); gr.addColorStop(1, rgba('#8a98a4', 0)); g.fillStyle = gr; g.fillRect(x - 12, 0, 24, h); }
+        speckle(g, w, h, R, 500, [rgba('#c8d6e0', 0.55), rgba('#6a7e90', 0.5)], 2.2);
+        g.strokeStyle = rgba('#0a0e14', 0.8); g.lineWidth = 1.5;
+        for (let i = 0; i < 12; i++) { let x = R() * w, y = R() * h; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 5; k++) { x += (R() - 0.5) * 36; y += (R() - 0.5) * 36; g.lineTo(x, y); } g.stroke(); }
+        for (let y = 20; y < h; y += 96) { g.fillStyle = rgba('#f2b705', 0.55); g.fillRect(w / 2 - 4, y, 8, 40); }
+      }
     } else if (style === 'dirt' || style === 'planks' || style === 'snow' || style === 'cracked') {
       if (!emissive) {
         const rut = style === 'snow' ? rgba('#7a96a8', 0.45) : rgba('#000000', 0.22);
@@ -198,6 +216,15 @@ function paintWall(style, w) {
       if (style === 'hazard') { for (let x = -Hh; x < W + Hh; x += 36) { g.fillStyle = '#f2b705'; g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 18, 0); g.lineTo(x + 18 + Hh * 0.45, Hh * 0.45); g.lineTo(x + Hh * 0.45, Hh * 0.45); g.fill(); } g.fillStyle = '#111214'; g.fillRect(0, Hh * 0.45, W, 4); }
       if (style === 'rail') { g.fillStyle = '#9aa0a8'; g.fillRect(0, Hh * 0.15, W, Hh * 0.3); g.fillStyle = 'rgba(0,0,0,0.4)'; g.fillRect(0, Hh * 0.28, W, 4); for (let i = 0; i < 14; i++) blot(g, R() * W, R() * Hh * 0.5, 10 + R() * 26, 'rgba(160,70,20,A)', 0.8); for (let x = 20; x < W; x += 64) { g.fillStyle = '#3a2a20'; g.fillRect(x, 0, 10, Hh); } }
       if (style === 'snowbank') { for (let i = 0; i < 12; i++) blot(g, R() * W, Hh * (0.5 + R() * 0.5), 20 + R() * 30, 'rgba(120,170,200,A)', 0.35); g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, Hh * 0.12); }
+    } else if (style === 'frostiron') {
+      /* riveted iron crash wall, rust streaks running down under an ice crust and icicles */
+      fill('#1c2128');
+      for (let x = 0; x < W; x += 64) { g.fillStyle = x % 128 ? '#232930' : '#191d23'; g.fillRect(x, 0, 62, Hh); g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(x + 62, 0, 2, Hh); for (let y = 14; y < Hh; y += 30) { g.fillStyle = '#3a424c'; g.fillRect(x + 6, y, 4, 4); g.fillRect(x + 52, y, 4, 4); } }
+      for (let i = 0; i < 14; i++) { const x = R() * W, y = Hh * (0.15 + R() * 0.3), gr = g.createLinearGradient(0, y, 0, y + 50 + R() * 40); gr.addColorStop(0, 'rgba(150,62,20,0.75)'); gr.addColorStop(1, 'rgba(150,62,20,0)'); g.fillStyle = gr; g.fillRect(x, y, 3 + R() * 5, 90); }
+      g.fillStyle = A[2]; g.globalAlpha = 0.5; g.fillRect(0, Hh * 0.5, W, 3); g.globalAlpha = 1;
+      g.fillStyle = '#8aa0b0'; g.beginPath(); g.moveTo(0, 0); for (let x = 0; x <= W; x += 8) g.lineTo(x, Hh * 0.1 + R() * 8); g.lineTo(W, 0); g.fill();
+      g.fillStyle = '#6a8aa4'; for (let x = 4; x < W; x += 10 + R() * 14) { const l = 8 + R() * 26; g.beginPath(); g.moveTo(x - 3, Hh * 0.1); g.lineTo(x + 3, Hh * 0.1); g.lineTo(x, Hh * 0.1 + l); g.fill(); }
+      speckle(g, W, Hh, R, 300, ['rgba(200,214,224,0.25)', 'rgba(0,0,0,0.3)'], 2);
     } else if (style === 'wood') {
       fill('#3a2c22'); for (let x = 0; x < W; x += 22) { g.fillStyle = x % 44 ? '#4a3a2c' : '#2e2218'; g.fillRect(x, 0, 20, Hh); g.fillStyle = 'rgba(0,0,0,0.4)'; g.fillRect(x + 20, 0, 2, Hh); }
       g.strokeStyle = '#c8b890'; g.lineWidth = 4; g.beginPath(); for (let x = 0; x <= W; x += 8) g.lineTo(x, Hh * 0.25 + Math.sin(x / W * TAU) * 6); g.stroke();
@@ -238,12 +265,12 @@ function paintChevron(col) {
 function paintPatch(kind) {
   return (g, w, h, R) => {
     g.clearRect(0, 0, w, h);
-    const C = { slick: ['#0a0a0e', 0.92], tarpit: ['#1a0e08', 0.95], puddle: ['#3a6a8a', 0.75], sheet: ['#bff2ff', 0.75], sandtrap: ['#c89a4a', 0.95], tidepool: ['#2ec2a8', 0.7],
+    const C = { slick: ['#0a0a0e', 0.92], tarpit: ['#1a0e08', 0.95], puddle: ['#3a6a8a', 0.75], sheet: ['#16324c', 0.85], ice: ['#16324c', 0.85], sandtrap: ['#c89a4a', 0.95], tidepool: ['#2ec2a8', 0.7],
       coolant: ['#1aff8a', 0.7], cinderslick: ['#2a0a04', 0.95], taffy: ['#ff6ab8', 0.92], ink: ['#1a0a2a', 0.92] }[kind] || ['#111', 0.9];
     for (let i = 0; i < 9; i++) { const x = w * (0.25 + R() * 0.5), y = h * (0.2 + R() * 0.6), r = w * (0.18 + R() * 0.16); const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, rgba(C[0], C[1])); gr.addColorStop(0.75, rgba(C[0], C[1])); gr.addColorStop(1, rgba(C[0], 0)); g.fillStyle = gr; g.fillRect(0, 0, w, h); }
     if (kind === 'slick' || kind === 'coolant' || kind === 'ink') for (let i = 0; i < 6; i++) { g.strokeStyle = ['rgba(255,80,220,0.35)', 'rgba(80,255,200,0.3)', 'rgba(255,220,80,0.3)'][i % 3]; g.lineWidth = 3; g.beginPath(); g.arc(w / 2 + (R() - 0.5) * 40, h / 2 + (R() - 0.5) * 40, 20 + R() * 40, 0, TAU); g.stroke(); }
     if (kind === 'sandtrap') { g.strokeStyle = 'rgba(120,80,30,0.6)'; g.lineWidth = 3; for (let y = 20; y < h; y += 16) { g.beginPath(); for (let x = 30; x < w - 30; x += 6) g.lineTo(x, y + Math.sin(x * 0.1) * 3); g.stroke(); } }
-    if (kind === 'sheet') { g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 2; for (let i = 0; i < 12; i++) { const x = w * (0.3 + R() * 0.4), y = h * (0.3 + R() * 0.4); g.beginPath(); g.moveTo(x, y); g.lineTo(x + (R() - 0.5) * 60, y + (R() - 0.5) * 60); g.stroke(); } }
+    if (kind === 'sheet' || kind === 'ice') { g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 2; for (let i = 0; i < 12; i++) { const x = w * (0.3 + R() * 0.4), y = h * (0.3 + R() * 0.4); g.beginPath(); g.moveTo(x, y); g.lineTo(x + (R() - 0.5) * 60, y + (R() - 0.5) * 60); g.stroke(); } }
     if (kind === 'taffy') { g.strokeStyle = 'rgba(255,240,248,0.6)'; g.lineWidth = 2; for (let i = 0; i < 10; i++) { g.beginPath(); g.moveTo(R() * w, R() * h); g.bezierCurveTo(R() * w, R() * h, R() * w, R() * h, R() * w, R() * h); g.stroke(); } }
   };
 }
@@ -352,10 +379,13 @@ const SETS = {
   /* frostbite pass */
   pine(B, G, A) { B.cyl(0.25, 0.35, 2, 5, '#3a2a20', 0, 1, 0); for (let k = 0; k < 4; k++) { B.cone(2.6 - k * 0.5, 2.6, 7, '#1e3a34', 0, 2.4 + k * 1.6, 0); B.cone(2.62 - k * 0.5, 0.7, 7, '#f4fbff', 0, 3.4 + k * 1.6, 0); } },
   pineTall(B, G, A) { B.cyl(0.35, 0.5, 3, 5, '#3a2a20', 0, 1.5, 0); for (let k = 0; k < 6; k++) { B.cone(3.6 - k * 0.5, 3.4, 7, '#18302c', 0, 3.6 + k * 2.2, 0); B.cone(3.62 - k * 0.5, 0.9, 7, '#f4fbff', 0, 4.9 + k * 2.2, 0); } },
-  iceSpikes(B, G, A) { const R = rng(2); for (let i = 0; i < 6; i++) B.cone(0.5 + R() * 0.8, 3 + R() * 5, 5, '#9adcf4', (R() - 0.5) * 4, 2, (R() - 0.5) * 4, (R() - 0.5) * 0.5, 0, (R() - 0.5) * 0.5, 0.1); },
-  frozenRig(B, G, A) { B.box(6, 3, 3, '#4a5a6a', 0, 1.5, 0, 0, 0, 0.1); B.box(2.4, 2, 2.6, '#3a4a58', 2.2, 3.6, 0); B.box(6.4, 0.6, 3.4, '#e8f6ff', 0, 3.1, 0); B.cone(0.3, 1.6, 5, '#bff2ff', -2, 2.2, 1.6, Math.PI); B.cone(0.3, 1.2, 5, '#bff2ff', 1, 2.2, 1.6, Math.PI); },
+  iceSpikes(B, G, A) { const R = rng(2); for (let i = 0; i < 6; i++) B.cone(0.5 + R() * 0.8, 3 + R() * 5, 5, i % 2 ? '#1e3a52' : '#2e5672', (R() - 0.5) * 4, 2, (R() - 0.5) * 4, (R() - 0.5) * 0.5, 0, (R() - 0.5) * 0.5, 0.1); B.dodeca(1.6, '#141a22', 0, 0.3, 0, 1.6, 0.4, 1.4); },
+  frozenRig(B, G, A) { B.box(6, 3, 3, '#3a2620', 0, 1.5, 0, 0, 0, 0.1); B.box(2.4, 2, 2.6, '#2a2c32', 2.2, 3.6, 0); B.box(6.4, 0.5, 3.4, '#7a8a98', 0, 3.1, 0); B.box(1.2, 3.2, 0.2, '#8a3b12', -1.6, 1.6, 1.55, 0, 0, 0.1); B.cone(0.3, 1.6, 5, '#4a7a9a', -2, 2.2, 1.6, Math.PI); B.cone(0.3, 1.2, 5, '#4a7a9a', 1, 2.2, 1.6, Math.PI); G.box(0.5, 0.3, 0.1, '#ffa030', 2.2, 4, 1.32); },
+  sodiumLamp(B, G, A) { B.box(0.3, 9, 0.3, '#1c2026', 0, 4.5, 0); B.box(2.6, 0.3, 0.4, '#1c2026', 1.1, 9, 0); B.box(1.2, 0.45, 0.8, '#2a2e34', 2.2, 8.75, 0); B.box(0.36, 0.3, 0.36, '#8a3b12', 0, 3, 0); B.box(2.7, 0.18, 0.5, '#7a8a98', 1.1, 9.22, 0); G.box(1.0, 0.12, 0.6, '#ffb040', 2.2, 8.5, 0); G.cyl(3.4, 3.4, 0.02, 10, '#3a1c06', 2.2, 0.04, 0); },
+  deadPine(B, G, A) { B.cyl(0.22, 0.34, 2.4, 5, '#1a1410', 0, 1.2, 0); for (let k = 0; k < 4; k++) { B.cone(2.2 - k * 0.45, 2.4, 6, '#0c1614', 0, 2.6 + k * 1.5, 0, 0.06, k, 0); B.cone(2.22 - k * 0.45, 0.5, 6, '#7a8a96', 0, 3.4 + k * 1.5, 0, 0.06, k, 0); } },
+  rustTank(B, G, A) { B.cyl(1.8, 1.8, 7, 9, '#4a2416', 0, 2.1, 0, 0, 0, Math.PI / 2); B.cyl(1.85, 1.85, 0.4, 9, '#1c2026', 2.6, 2.1, 0, 0, 0, Math.PI / 2); B.cyl(1.85, 1.85, 0.4, 9, '#1c2026', -2.6, 2.1, 0, 0, 0, Math.PI / 2); B.box(7.2, 0.4, 2.6, '#7a8a98', 0, 3.85, 0); for (let i = 0; i < 6; i++) B.cone(0.18, 0.8 + (i % 3) * 0.5, 4, '#4a7a9a', -2.5 + i, 1.0, 1.75, Math.PI); B.box(1.2, 1.2, 3.8, '#2a2e34', 0, 0.6, 0); G.box(0.4, 0.4, 0.1, '#ff3a1a', 3.2, 2.1, 0.9); },
   snowRock(B, G, A) { B.dodeca(1.8, '#5a6a78', 0, 1, 0, 1.3, 0.8, 1.1); B.dodeca(1.82, '#f4fbff', 0, 1.6, 0, 1.2, 0.4, 1.0); },
-  iceFall(B, G, A) { B.box(10, 16, 4, '#4a5a68', 0, 8, -2); for (let i = 0; i < 7; i++) B.cone(0.9, 6 + (i % 3) * 3, 6, '#bff2ff', -4 + i * 1.3, 12 - (i % 3) * 1.5, 0.4, Math.PI, 0, 0, 0.08); B.box(9, 1.5, 4, '#e8f6ff', 0, 0.7, 1.5); },
+  iceFall(B, G, A) { B.box(10, 16, 4, '#161c24', 0, 8, -2); B.box(3, 14, 0.4, '#5a2a14', -3, 9, 0.1); for (let i = 0; i < 7; i++) B.cone(0.9, 6 + (i % 3) * 3, 6, i % 2 ? '#2e5672' : '#4a7a9a', -4 + i * 1.3, 12 - (i % 3) * 1.5, 0.4, Math.PI, 0, 0, 0.08); B.box(9, 1.5, 4, '#5a6a78', 0, 0.7, 1.5); },
   snowFence(B, G, A) { for (let i = -3; i <= 3; i++) B.box(0.15, 2.4, 0.15, '#3a2a20', i * 1.2, 1.2, 0); B.box(8, 0.2, 0.1, '#c8322a', 0, 2, 0); B.box(8, 0.8, 0.3, '#f4fbff', 0, 0.4, 0); },
   /* scorch flats */
   ribcage(B, G, A) { for (let i = 0; i < 5; i++) { B.torus(4 - Math.abs(i - 2) * 0.6, 0.35, 4, 8, '#e8dcc0', 0, 0, i * 2.2 - 4.4, 0, Math.PI / 2, 0, Math.PI); } B.cyl(0.5, 0.5, 11, 6, '#d8ccb0', 0, 0.3, 0, Math.PI / 2); },
@@ -411,7 +441,7 @@ const SETS = {
 };
 /* sets that hover or hang (orbit and citadel): placed with a lift above or below the road level */
 const FLOAT_SETS = { junk: [-14, 16], junkBig: [-30, 30], satellite: [-10, 20], solarPanel: [-20, 20], fuelTank: [-16, 16], truss: [-26, -6], floatRock: [-24, 2], floatRockBig: [-60, -18], chainHang: [-2, 12] };
-const BIG_SETS = { mesa: 1, tower: 1, towerTall: 1, warehouse: 1, hulk: 1, junkBig: 1, floatRockBig: 1, spireTall: 1, rockArch: 1, dockCrane: 1, iceFall: 1, derrick: 1, smokestack: 1, tent: 1, kelpTall: 1, pineTall: 1, carousel: 1, ribcage: 1, skull: 1, subHulk: 1, watchTower: 1 };
+const BIG_SETS = { rustTank: 1, mesa: 1, tower: 1, towerTall: 1, warehouse: 1, hulk: 1, junkBig: 1, floatRockBig: 1, spireTall: 1, rockArch: 1, dockCrane: 1, iceFall: 1, derrick: 1, smokestack: 1, tent: 1, kelpTall: 1, pineTall: 1, carousel: 1, ribcage: 1, skull: 1, subHulk: 1, watchTower: 1 };
 
 /* ---------- landmarks: the horizon set piece of each world. Built at landmark scale (hundreds of metres) ---------- */
 const LANDMARKS = {
@@ -442,8 +472,12 @@ const LANDMARKS = {
     B.box(300, 40, 60, '#1a2028', 40, 0, 160); B.box(60, 40, 40, '#222a34', -60, 40, 160); B.cyl(6, 6, 30, 8, '#2a3038', -60, 70, 160);
   },
   peaks(B, G, A) {
-    for (let i = 0; i < 11; i++) { const x = (i - 5) * 110, h = 220 + ((i * 53) % 200); B.cone(110 + (i % 3) * 30, h, 5, '#3a5a74', x, h / 2, (i % 2) * 60); B.cone(46 + (i % 3) * 12, h * 0.36, 5, '#f4fbff', x, h * 0.82, (i % 2) * 60); }
-    B.box(160, 90, 30, '#5a7a90', 20, 45, -60); for (let i = 0; i < 8; i++) B.cone(6, 50, 5, '#bff2ff', -40 + i * 16, 70, -44, Math.PI);
+    /* black teeth of a range under dirty snow, and a frozen iron dam across the pass, its crest lit by sodium lamps */
+    for (let i = 0; i < 11; i++) { const x = (i - 5) * 110, h = 220 + ((i * 53) % 200); B.cone(110 + (i % 3) * 30, h, 5, '#141c26', x, h / 2, (i % 2) * 60); B.cone(46 + (i % 3) * 12, h * 0.36, 5, '#5a6a78', x, h * 0.82, (i % 2) * 60); }
+    B.box(200, 100, 30, '#1a2028', 20, 50, -60); for (let i = 0; i < 6; i++) B.box(8, 104, 34, '#242a32', -70 + i * 36, 52, -60);
+    for (let i = 0; i < 5; i++) B.box(10, 70, 1, '#4a2210', -52 + i * 36, 50, -44);
+    for (let i = 0; i < 10; i++) B.cone(5, 40 + (i % 3) * 14, 5, '#2e5672', -70 + i * 18, 76, -44, Math.PI);
+    for (let i = 0; i < 9; i++) G.box(4, 2, 1, '#ffa030', -64 + i * 18, 102, -44);
   },
   bones(B, G, A) {
     /* a titanic skeleton half buried in the flats */
@@ -498,7 +532,7 @@ const OVERS = {
   bonegate(B, G, A) { B.box(2, 1.2, 1.2, '#c8b898', 0, 9, 0); for (const x of [-0.7, 0, 0.7]) B.box(0.1, 2.4, 0.2, '#e8dcc0', x, 7.4, 0.6); G.box(0.12, 0.6, 0.1, A[2], 0, 8.8, 0.62); },
   signgantry(B, G, A) { B.box(2, 0.6, 0.6, '#2a2a34', 0, 8, 0); B.box(1.2, 2.6, 0.3, '#14141c', -0.35, 6.6, 0.2); G.cone(0.14, 1.6, 3, A[1], -0.35, 6.6, 0.4, 0, 0, -Math.PI / 2); G.box(0.5, 0.4, 0.1, '#4ff0ff', 0.45, 6.9, 0.3); G.box(2, 0.12, 0.1, A[2], 0, 8.35, 0.32); },
   gantrycrane(B, G, A) { B.box(2, 1.8, 2.2, '#c8a02a', 0, 12, 0); B.box(0.18, 1.2, 1.6, '#3a3a40', 0.3, 10.6, 0); B.box(0.02, 4, 0.1, '#111', 0.3, 8, 0); B.box(0.26, 0.8, 1.2, '#f2b705', 0.3, 6, 0); G.ico(0.04, '#ff3a2a', -0.95, 13, 0); },
-  icearch(B, G, A) { B.box(2, 1.6, 2, '#bff2ff', 0, 8.6, 0, 0, 0, 0, 0.08); for (let i = 0; i < 7; i++) B.cone(0.06, 1.6 + (i % 3) * 0.6, 5, '#e8f8ff', -0.9 + i * 0.3, 7.2, 0, Math.PI, 0, 0, 0.05); },
+  icearch(B, G, A) { B.box(2, 1.4, 1.4, '#1c2026', 0, 8.6, 0, 0, 0, 0, 0.12); B.box(2, 0.3, 1.5, '#7a8a98', 0, 9.4, 0); B.box(2, 0.22, 1.46, '#b3200f', 0, 7.95, 0); for (let i = 0; i < 7; i++) B.cone(0.05, 1.4 + (i % 3) * 0.6, 4, '#4a7a9a', -0.9 + i * 0.3, 7.1, 0.3, Math.PI, 0, 0, 0.05); G.box(0.3, 0.16, 0.5, '#ffb040', -0.5, 7.75, -0.2); G.box(0.3, 0.16, 0.5, '#ffb040', 0.5, 7.75, -0.2); },
   ribarch(B, G, A) { B.torus(1, 0.06, 4, 12, '#e8dcc0', 0, 0, 0, 0, 0, 0, Math.PI); },
   shipribs(B, G, A) { B.torus(1, 0.06, 4, 12, '#4a2a1a', 0, 0, 0, 0, 0, 0, Math.PI); B.box(0.2, 0.3, 1, '#2a1a10', 0, 1, 0); },
   ringgate(B, G, A) { B.torus(1, 0.07, 4, 16, '#6b727e', 0, 0, 0, 0, 0, 0, TAU); G.torus(1.0, 0.025, 3, 16, A[1], 0, 0, 0.12, 0, 0, 0, TAU); },
@@ -526,22 +560,22 @@ function propGeo(T, look, w, A) {
     case 'pad': B.box(4, 0.08, 6, '#1a1c21', 0, 0.04, 0); B.box(4.2, 0.06, 0.3, haz, 0, 0.06, 2.9); B.box(4.2, 0.06, 0.3, haz, 0, 0.06, -2.9); break;
     case 'jump': B.box(4, 0.6, 3, '#2c3039', 0, 0.3, 0, -0.18); B.box(4.1, 0.1, 0.4, haz, 0, 0.66, 1.2, -0.18); break;
     /* hard obstacles, a few archetypes in each world's palette */
-    case 'wreck': case 'frozenwreck': case 'subwreck': B.box(3.4, 1.0, 1.8, thing === 'frozenwreck' ? '#7a9aaa' : thing === 'subwreck' ? '#2a4040' : '#7a2a1a', 0, 0.7, 0, 0, 0, 0.12); B.box(1.8, 0.7, 1.6, '#2a2c30', -0.2, 1.5, 0, 0, 0, 0.12); B.cyl(0.4, 0.4, 0.3, 8, '#111', 1.1, 0.4, 0.95, Math.PI / 2); if (thing === 'frozenwreck') B.box(3.6, 0.3, 2, '#f4fbff', 0, 1.9, 0); break;
+    case 'wreck': case 'frozenwreck': case 'subwreck': B.box(3.4, 1.0, 1.8, thing === 'frozenwreck' ? '#6a3a24' : thing === 'subwreck' ? '#2a4040' : '#7a2a1a', 0, 0.7, 0, 0, 0, 0.12); B.box(1.8, 0.7, 1.6, '#2a2c30', -0.2, 1.5, 0, 0, 0, 0.12); B.cyl(0.4, 0.4, 0.3, 8, '#111', 1.1, 0.4, 0.95, Math.PI / 2); if (thing === 'frozenwreck') B.box(3.6, 0.3, 2, '#b8cad8', 0, 1.9, 0); break;
     case 'girder': case 'caneRail': case 'panel': for (let i = 0; i < 3; i++) B.box(2.6, 0.4, 0.4, thing === 'caneRail' ? (i % 2 ? '#c8322a' : '#fff0f8') : thing === 'panel' ? '#2a3a8a' : (i % 2 ? rust : steel), 0, 0.2 + i * 0.42, (i - 1) * 0.15, 0, i * 0.2, 0); B.box(2.7, 0.12, 0.5, haz, 0, 1.3, 0); break;
     case 'slagdrum': case 'drum': case 'crucible': case 'gumball': case 'tanker': B.cyl(0.75, 0.75, 1.8, 8, thing === 'gumball' ? '#c84f8a' : thing === 'drum' ? '#2a5a5a' : '#3a3430', 0, 0.9, 0); B.cyl(0.78, 0.78, 0.18, 8, haz, 0, 1.2, 0); B.cyl(0.7, 0.7, 0.06, 8, thing === 'slagdrum' || thing === 'crucible' ? '#ffb02e' : steel, 0, 1.82, 0); break;
     case 'jersey': case 'bollard': case 'ironblock': case 'iceblock': case 'container': case 'crateStack': case 'hullplate':
-      B.box(2.2, 1.1, 1.0, { jersey: '#8a8e94', bollard: '#1a1c20', ironblock: '#4a4652', iceblock: '#9adcf4', container: '#a83a22', crateStack: '#5a4a32', hullplate: '#5a3420' }[thing], 0, 0.55, 0, 0, 0, 0, 0.2);
-      B.box(1.6, 0.3, 0.9, thing === 'iceblock' ? '#e8f8ff' : '#6a6e74', 0, 1.25, 0); B.box(2.24, 0.16, 1.04, thing === 'jersey' ? A[1] : haz, 0, 0.3, 0);
+      B.box(2.2, 1.1, 1.0, { jersey: '#8a8e94', bollard: '#1a1c20', ironblock: '#4a4652', iceblock: '#5aa4d0', container: '#a83a22', crateStack: '#5a4a32', hullplate: '#5a3420' }[thing], 0, 0.55, 0, 0, 0, 0, 0.2);
+      B.box(1.6, 0.3, 0.9, thing === 'iceblock' ? '#b8d8ea' : '#6a6e74', 0, 1.25, 0); B.box(2.24, 0.16, 1.04, thing === 'jersey' ? A[1] : haz, 0, 0.3, 0);
       break;
     case 'hydrant': B.cyl(0.4, 0.5, 1.2, 8, '#c8322a', 0, 0.6, 0); B.cyl(0.5, 0.5, 0.2, 8, '#a8221a', 0, 1.25, 0); B.cyl(0.15, 0.15, 1.2, 6, '#c8322a', 0, 0.7, 0, Math.PI / 2); break;
     case 'boulder': case 'slagheap': case 'rubble': case 'snowboulder': case 'sandrock': case 'blackrock': case 'asteroid': case 'lavarock': case 'jawbreaker': case 'seastone': case 'floatrock': case 'obsidian': case 'clam': case 'buoy':
-      B.dodeca(1.2, { boulder: '#7a2c12', slagheap: '#2a2220', rubble: '#3a3a44', snowboulder: '#e8f4fa', sandrock: '#c08c3c', blackrock: '#1a1a1c', asteroid: '#5a5e6a', lavarock: '#1a1214', jawbreaker: '#c84fa0', seastone: '#1a3030', floatrock: '#4a4652', obsidian: '#0e0c0e', clam: '#3a3a5a', buoy: '#c8322a' }[thing] || '#555', 0, 0.9, 0, 1.1, 0.85, 1.0, 0.3);
+      B.dodeca(1.2, { boulder: '#7a2c12', slagheap: '#2a2220', rubble: '#3a3a44', snowboulder: '#a8b8c6', sandrock: '#c08c3c', blackrock: '#1a1a1c', asteroid: '#5a5e6a', lavarock: '#1a1214', jawbreaker: '#c84fa0', seastone: '#1a3030', floatrock: '#4a4652', obsidian: '#0e0c0e', clam: '#3a3a5a', buoy: '#c8322a' }[thing] || '#555', 0, 0.9, 0, 1.1, 0.85, 1.0, 0.3);
       if (thing === 'jawbreaker') B.dodeca(1.22, '#8cff3a', 0, 0.9, 0, 1.08, 0.3, 1.0);
       if (thing === 'lavarock' || thing === 'obsidian') B.box(0.12, 1.2, 0.12, '#ff5a1a', 0.5, 1, 0.9, 0, 0, 0.4);
       break;
     case 'deadtree': case 'totem': case 'cactus': case 'pylon': case 'bone': case 'icespike': case 'spire': case 'coral': case 'statue': case 'chainpost': case 'satellite': case 'debris': case 'anchor':
       if (thing === 'cactus') { B.cyl(0.5, 0.6, 2.8, 7, '#4a6a2a', 0, 1.4, 0); B.cyl(0.3, 0.3, 1.2, 6, '#4a6a2a', 0.8, 1.8, 0); }
-      else if (thing === 'icespike' || thing === 'spire' || thing === 'bone') B.cone(0.8, 3, 5, { icespike: '#9adcf4', spire: '#121012', bone: '#e8dcc0' }[thing], 0, 1.5, 0, 0.1, 0, 0.1);
+      else if (thing === 'icespike' || thing === 'spire' || thing === 'bone') B.cone(0.8, 3, 5, { icespike: '#5aa4d0', spire: '#121012', bone: '#e8dcc0' }[thing], 0, 1.5, 0, 0.1, 0, 0.1);
       else if (thing === 'satellite' || thing === 'debris') { B.box(1.4, 1.4, 1.4, '#8a8e9a', 0, 0.8, 0, 0.3, 0.4, 0.2); B.box(3, 0.1, 0.9, '#2a3a8a', 0, 1.2, 0, 0.2, 0.3, 0.1); }
       else if (thing === 'anchor') { B.box(0.4, 2.6, 0.4, '#2a2a2e', 0, 1.3, 0); B.torus(1, 0.2, 4, 8, '#2a2a2e', 0, 0.6, 0, 0, 0, Math.PI, Math.PI); }
       else { B.box(0.9, 2.6, 0.9, { deadtree: '#1a0c08', totem: '#5a2410', pylon: steel, coral: '#5a2a4a', statue: '#5a5468', chainpost: '#1a1416' }[thing] || steel, 0, 1.3, 0); B.box(1.4, 0.3, 1.4, haz, 0, 0.15, 0); B.ico(0.5, thing === 'coral' ? '#ff4fd8' : '#3a3a40', 0, 2.8, 0); }
@@ -550,7 +584,7 @@ function propGeo(T, look, w, A) {
   }
   return B.build();
 }
-const PATCH_THINGS = { slick: 1, tarpit: 1, puddle: 1, sheet: 1, sandtrap: 1, tidepool: 1, coolant: 1, cinderslick: 1, taffy: 1, ink: 1 };
+const PATCH_THINGS = { ice: 1, slick: 1, tarpit: 1, puddle: 1, sheet: 1, sandtrap: 1, tidepool: 1, coolant: 1, cinderslick: 1, taffy: 1, ink: 1 };
 
 /* a chunky 5-point star, gold with an orange rim, standing up */
 function starGeo(T) {
@@ -598,7 +632,7 @@ function buildRoad(T, track, spec, L, mats, out, keys) {
       c0.setRGB(1, 1, 1);
       if (fl & TF.RAMP) c0.copy(Math.floor(s / 1.5) % 2 ? haz : dark).lerp(white, 0.15);
       if (P && P.type === 'rumble' && Math.floor(s / ((P.wave || 4) / 2)) % 2) c0.setRGB(0.72, 0.72, 0.72);
-      if (P && P.surf && P.surf !== track.world.surf && SURF_TINT[P.surf]) c0.multiply(SURF_TINT[P.surf]);
+      if (P && P.surf && P.surf !== track.world.surf && SURF_TINT[P.surf]) c0.multiply(spec.world === 5 && P.surf === 'ice' ? BLACK_ICE : SURF_TINT[P.surf]);
       if (track.hp && track.hp[i] > 0.5 && (k === 0 || k === cols - 1)) c0.copy(molten);
       if (track.mid && track.mid[i] > 0.3 && k === (cols - 1) / 2) c0.multiplyScalar(0.35);
       col[o] = c0.r; col[o + 1] = c0.g; col[o + 2] = c0.b;
@@ -618,6 +652,7 @@ function buildRoad(T, track, spec, L, mats, out, keys) {
 }
 const SURF_TINT_HEX = { ice: '#cfefff', snow: '#f4fbff', steel: '#b8bcc4', asphalt: '#8a8a90', dirt: '#c08060', sand: '#f0d090', mud: '#7a5a3a', glass: '#80e0f0', cloud: '#e8e0ff', sugar: '#f0b0d0', oil: '#555', water: '#80b0d0', lava: '#ff8040' };
 const SURF_TINT = {};
+let BLACK_ICE = null;   /* frost's ice runs read blue-black against its iron deck */
 
 /* slab skirts, underside, walls, kerb posts: one vertex coloured geometry plus one textured wall geometry */
 function buildEdges(T, track, spec, L, mats, out, opts, keys) {
@@ -714,7 +749,7 @@ function makeMats(ctx, w, L) {
   const wallEm = GLOW_WALLS[L.wall] ? tex(ctx, 'wallE' + w, 256, 128, paintWallGlow(L.wall, w)) : null;
   const wet = L.road === 'wet' || L.road === 'pier' || L.road === 'glass';
   const mats = {
-    road: new T.MeshStandardMaterial({ map: roadMap, vertexColors: true, roughness: wet ? 0.32 : 0.82, metalness: L.road === 'plate' || L.road === 'hull' || L.road === 'iron' ? 0.45 : 0.08,
+    road: new T.MeshStandardMaterial({ map: roadMap, vertexColors: true, roughness: wet ? 0.32 : L.road === 'frostiron' ? 0.5 : 0.82, metalness: L.road === 'plate' || L.road === 'hull' || L.road === 'iron' || L.road === 'frostiron' ? 0.45 : 0.08,
       emissiveMap: roadEm, emissive: roadEm ? new T.Color(1, 1, 1) : new T.Color(0, 0, 0), emissiveIntensity: roadEm ? 1.4 : 0, side: T.DoubleSide }),
     wall: new T.MeshStandardMaterial({ map: wallMap, roughness: 0.8, metalness: 0.2, emissiveMap: wallEm, emissive: wallEm ? new T.Color(1, 1, 1) : new T.Color(0, 0, 0), emissiveIntensity: wallEm ? 1.2 : 0,
       side: T.DoubleSide, transparent: L.wall === 'glass', opacity: L.wall === 'glass' ? 0.7 : 1, flatShading: true }),
@@ -760,6 +795,7 @@ function buildWorld(ctx, track, spec, opts = {}) {
   const scene = new T.Scene(), disposables = [], low = ctx.quality === 'low', rm = !!ctx.reducedMotion;
   const R = rng(spec.seed || w);
   for (const k in SURF_TINT_HEX) SURF_TINT[k] = SURF_TINT[k] || new T.Color(SURF_TINT_HEX[k]);
+  BLACK_ICE = BLACK_ICE || new T.Color('#6a9cd4');
   const mats = makeMats(ctx, w, L);
   for (const k in mats) disposables.push(mats[k]);
 
@@ -812,9 +848,9 @@ function buildWorld(ctx, track, spec, opts = {}) {
     const g = K.build(), m = new T.Mesh(g, mats.far); m.renderOrder = -7; skyG.add(m); disposables.push(g);
   }
   let aurora = null;
-  if (w === 5 || w === 8) {
+  if (w === 8) {
     const K = Kit(T);
-    for (let i = 0; i < 5; i++) K.box(900, 160 + i * 30, 1, i % 2 ? A[1] : (w === 8 ? A[2] : '#6bffd8'), (i - 2) * 300, 640 + i * 40, -1800 + i * 90, 0.2, i * 0.4 - 0.8, 0.05, 0);
+    for (let i = 0; i < 5; i++) K.box(900, 160 + i * 30, 1, i % 2 ? A[1] : A[2], (i - 2) * 300, 640 + i * 40, -1800 + i * 90, 0.2, i * 0.4 - 0.8, 0.05, 0);
     const g = K.build(), m = new T.MeshBasicMaterial({ vertexColors: true, fog: false, transparent: true, opacity: 0.22, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide, toneMapped: false });
     aurora = new T.Mesh(g, m); aurora.renderOrder = -6; skyG.add(aurora); disposables.push(g, m);
   }
@@ -829,7 +865,7 @@ function buildWorld(ctx, track, spec, opts = {}) {
   const floorY = minY - 4, hasFloor = L.floor !== 'none' && L.floor !== 'cloud';
   const keys = sampleKeys(track, spec);
   buildRoad(T, track, spec, L, mats, statics, keys);
-  const wallH = { scrap: 1.6, rock: 1.4, jersey: 1.1, hazard: 1.1, snowbank: 1.3, rail: 1.0, wood: 1.0, energy: 0.9, obsidian: 1.4, cane: 1.0, glass: 1.0, battlement: 1.5 }[L.wall] || 1.2;
+  const wallH = { scrap: 1.6, rock: 1.4, jersey: 1.1, hazard: 1.1, snowbank: 1.3, frostiron: 1.5, rail: 1.0, wood: 1.0, energy: 0.9, obsidian: 1.4, cane: 1.0, glass: 1.0, battlement: 1.5 }[L.wall] || 1.2;
   buildEdges(T, track, spec, L, mats, statics, { slab: w === 8 || w === 12 ? 2.4 : 1.4, walls: true, wallH, wallT: 0.7 }, keys);
   if (hasFloor) buildTerrain(T, track, spec, L, mats, statics, floorY);
   for (const m of statics) { scene.add(m); disposables.push(m.geometry); }
@@ -1161,7 +1197,9 @@ function buildWorld(ctx, track, spec, opts = {}) {
   /* fx */
   const fx = VROOM.fx && VROOM.fx.create ? VROOM.fx.create(ctx, scene) : null;
   const fxPos = [0, 0, 0], fxDir = { dir: [0, 1, 0], color: null, n: 0, id: 0, up: [0, 1, 0], speed: 0, w: 0.35 };
-  let dustT = 0, smokeT = 0, nitroT = 0;
+  let dustT = 0, smokeT = 0, nitroT = 0, trailT = 0;
+  /* a boss leaves a wake: embers in the world's hot accent under soot (frost's soot is cold iron grey) */
+  const trailO = { n: 3, color: A[1], soot: w === 5 ? '#262c34' : w === 12 || w === 8 ? '#2a2638' : '#1c1a1e' };
   const dustCol = { 2: '#a8643a', 3: '#d8b070', 5: '#ffffff', 6: '#ffffff', 4: '#5a3a22', 12: '#ff9ad0' };
 
   const camPos = new T.Vector3();
@@ -1231,6 +1269,19 @@ function buildWorld(ctx, track, spec, opts = {}) {
           if (wl.contact && (wl.slip > 0.45 || c.drift)) { fxPos[0] = wl.x; fxPos[1] = wl.y; fxPos[2] = wl.z; fxDir.id = k; fxDir.w = 0.36; fxDir.up[0] = 0; fxDir.up[1] = 1; fxDir.up[2] = 0; fx.emit('skid', fxPos, fxDir); if (smokeT <= 0) { smokeT = 0.08; fxDir.n = 1; fxDir.color = null; fx.emit('smoke', fxPos, fxDir); } }
           else fx.emit('skid', null, { id: k });
         }
+        trailT -= dt;
+        if (st.actors && trailT <= 0) {
+          trailT = low ? 0.12 : 0.06;
+          for (let i = 0; i < st.actors.length; i++) {
+            const a = st.actors[i];
+            if (!a.boss || !a.alive || a.defeated || a.state === 'idle' || a.state === 'gone') continue;
+            const dx = a.x - camPos.x, dz = a.z - camPos.z;
+            if (dx * dx + dz * dz > far2) continue;
+            const K = VROOM.monsterAI && VROOM.monsterAI.KINDS[a.kind], hh = K ? K.h : 6;
+            fxPos[0] = a.x; fxPos[1] = a.y + hh * 0.35; fxPos[2] = a.z;
+            fx.emit('trail', fxPos, trailO);
+          }
+        }
         if (c.boosting && nitroT <= 0) {
           nitroT = 0.03;
           const sp = Math.max(1, c.speed), bx = -c.vx / sp, bz = -c.vz / sp;
@@ -1275,6 +1326,8 @@ function buildWorld(ctx, track, spec, opts = {}) {
           if (ev.what === 'stomp' || ev.what === 'lunge' || ev.what === 'attack' || ev.what === 'enter') fx.emit('dust', at(a.x, a.y + 0.3, a.z), { n: ev.type === 'boss' ? 14 : 6, color: dustCol[st.car.surf] || '#6b6258', big: ev.type === 'boss' ? 1 : 0 });
           if (ev.what === 'hit' && c) fx.emit('sparks', at(c.x, c.y + 1, c.z), { n: 20 });
           if (ev.what === 'defeat') fx.emit('explosion', at(a.x, a.y + 3, a.z), { big: 1 });
+          /* a boss arrives in a blast: the road erupts, sparks in the world's hot accent */
+          if (ev.type === 'boss' && ev.what === 'enter') { fx.emit('explosion', at(a.x, a.y + 2, a.z), { big: 1 }); fx.emit('sparks', fxPos, { n: 40, color: A[1], speed: 1.6 }); fx.emit('smoke', fxPos, { n: 10, color: trailO.soot }); }
           break;
         }
         default: break;
@@ -1301,6 +1354,8 @@ function makeWeather(ctx, kind, A, low, rm, dotTex, disposables) {
     rain: { n: 1800, box: [70, 40, 70], vel: [3, -30, 1], col: '#bfe0ff', size: 0, add: false, op: 0.45, streak: 1.6 },
     storm: { n: 1500, box: [70, 40, 70], vel: [5, -28, 2], col: '#d8ccff', size: 0, add: false, op: 0.45, streak: 1.5 },
     snow: { n: 2200, box: [80, 40, 80], vel: [7, -4, 2], col: '#ffffff', size: 0.32, add: false, op: 0.95, sway: 2.5 },
+    /* a night blizzard driving across the pass: dense grey-white flakes on a hard slant, a few amber-lit by the lamps */
+    blizzard: { n: 3200, box: [70, 34, 70], vel: [18, -6, 7], col: '#b8c6d2', size: 0.26, add: false, op: 0.85, sway: 4, glowN: 260, glowCol: '#ffa040' },
     sand: { n: 1600, box: [90, 24, 90], vel: [16, -0.5, 6], col: '#e8c88a', size: 0.26, add: false, op: 0.7, sway: 2 },
     spray: { n: 700, box: [80, 30, 80], vel: [3, -0.6, 1], col: '#dff6ee', size: 0.3, add: false, op: 0.45, sway: 1.5 },
     debris: { n: 300, box: [120, 60, 120], vel: [0.3, 0.1, 0.4], col: '#a88cff', size: 0.7, add: true, op: 0.7, sway: 0.6 },

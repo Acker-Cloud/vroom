@@ -193,9 +193,14 @@ looks and animation are `src/monsters.js`. Archetypes (contracts `ARCHE`):
 - **swarm**: a pack of small ones crossing together; each hit is small.
 - **diver**: from above, its shadow on the road first.
 - **burrower**: a wake in the ground tracking toward the car, then erupts.
-- **boss**: the finale chase on levels 10, 20 ... 120. It starts behind, rubber-bands to stay close
-  and menacing, throws attacks telegraphed on the road (slams, thrown debris spawned as `debris`
-  actors, sweeps), and is beaten by reaching the flag (`boss` event `defeat`). It never wins.
+- **boss**: the finale chase on levels 10, 20 ... 120. 14.1: it enters from behind beside the road,
+  roars past and keeps station 14 to 30 m ahead, off the car's line (never a body in the car's path
+  within 10 m), so it is in view for the whole chase. Attacks are telegraphed on the road: a charge
+  drops back level beside the road, rings the half it will sweep and swings in (the far half dodges
+  it); a leap slams into a marked spot ahead and lies dazed there, rammable; thrown debris spawns as
+  `debris` actors. In the last 150 m it drops back and is beaten at the flag (`boss` event `defeat`).
+  It never wins. After any monster hit no monster can touch the car for 1.6 s, and the same monster
+  waits 2.6 s, so nothing can pin the car.
 
 Hits: `KINDS[kind].knock` (impulse, lift, spin, stun) applied by the sim with momentum (heavier cars
 and armor upgrades shrug more off). Never a stop longer than about 1 s.
@@ -241,8 +246,11 @@ A rigid body (mass, inertia from `CarStats.size`) on four raycast wheels:
   rolls in corners and soaks up rumble.
 - **Tyres**: longitudinal drive and brake force limited by a friction circle; lateral grip from slip
   angle with a peak and a falloff (`grip`, surface multiplier, wheel grip). Past the peak the car slides.
-- **Drift**: hold drift (or flick steer at speed) to drop rear grip to `driftGrip`; counter-steer holds
-  the angle; a clean drift banks boost (`driftBank` event). Spin-outs from oil, mines, hits.
+- **Drift**: a power slide. Hold drift (or flick steer at speed): the rear kicks out, tyre side force
+  drops away and the path curves at a share of the grip the steering sets (countersteer 0.3 g, centred
+  1.0 g, steering in 1.7 g), with a slip angle the player steers (about 22, 33 and 43 deg). Speed holds
+  between a small scrub floor and top speed, countersteer never ends the slide, and the exit boost
+  scales with drift time and mean angle (`driftBank` event). Spin-outs from oil, mines, hits.
 - **Engine**: power-limited thrust with a top speed, a gear and rpm model for the engine sound
   (`rpm`, `gear` on CarState). Boost: a meter (0..1, tank upgrade = longer) that adds `boostPower`.
 - **Air**: ballistic under world gravity, `airDrag`; air control rotates pitch and roll (`airControl`,
@@ -280,14 +288,18 @@ level under 2x par with at most 3 respawns; skill 1 must reach par A. Fix conten
   steel plate with a shockwave and an engine roar; about 2 s, any tap skips.
 - **home** (ui): the world-of-the-day diorama behind; the logo; the player's machine idling in front,
   revving on tap; a huge hazard-rimmed GO plate (next level), garage, map, profile (avatar) plates;
-  the wallet chip. An attract-mode loop may race the autopilot behind the menu after 20 s idle.
+  the wallet chip. Attract mode (14.1): after 20 s idle the autopilot races the world of the day
+  behind the menu (a boss finale every other run) with cut camera shots; any input returns to the
+  podium and the waking press is swallowed. One steady chase shot under reduced motion.
 - **garage** (cars): section 3.
 - **map** (ui): twelve world tabs as riveted plates with their emblems (`worlds.icon`), locked
   worlds behind a hazard gate; a world page is a route of 10 level plates over its backdrop, each
   with its number, 1 to 3 stars and medal; the finale plate shows the boss emblem.
 - **race** (game): countdown (3, 2, 1 numerals and a GO light), HUD (ui): star count, timer, boost
-  meter, checkpoint pips, boss distance bar on finales, position of the ghost (best replay). Controls
-  (ui): on-screen gas, brake, boost, drift plates and a steering drag zone (or tilt, `progress.ctrl`);
+  meter, checkpoint pips, boss distance bar on finales, the progress rail (a chrome arrowhead for you,
+  a steel one for the ghost, a skull plate for the boss). Controls (ui): on-screen gas, brake, boost,
+  drift plates (shown only on touch: `pointer: coarse` at boot or a touch press) and a steering drag
+  zone (or tilt, `progress.ctrl`);
   keyboard WASD / arrows, space boost, shift drift.
 - **results** (ui): a slammed gunmetal card: time, stars, rating, medal stamp, payout tallying into
   the wallet, new-best flare; replay, garage, next.
@@ -328,7 +340,11 @@ Everything in `src/save.js` (owner integrator), ported from v12 sections 4 and 1
   never compared, the tracks differ) and `replay` ({ t, ticks, rle }: run-length packed inputs, a
   deterministic ghost). Unknown top-level fields round-trip untouched. `fuel`, `tread`, `muddy` and the
   v12 `ghost` traces are retired from play but kept.
-- **Default build** for a fresh save: `monster` body, `monster` wheels, red (`#e53935`), all free.
+- **Default build** for a fresh save: `VROOM.catalog.STARTER`, the `monster` body on `monster` wheels
+  in the free two-tone `m:furnace` paint (furnace red over gunmetal, flame stencils), decal `none`.
+  Saves from before 14.1 keep their own build; the loader's fallback paint stays `#e53935`.
+- **Ghosts** carry a build key that starts with the sim revision (`s2` in 14.1), so a ghost driven on
+  older physics is not replayed.
 
 ## 10. Module map
 

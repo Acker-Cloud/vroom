@@ -19,7 +19,7 @@
    Track space: s metres along the centreline, d metres to the DRIVER'S RIGHT (r = cross(t, u)), h metres
    above the surface along u. A turn with angle > 0 turns to the driver's right. */
 
-const APP_VERSION = '14.0.0';
+const APP_VERSION = '14.1.0';
 
 /* ---------- sim timing ---------- */
 const SIM_HZ = 120;
@@ -160,14 +160,16 @@ const MODULE_API = {
   /* src/catalog.js (cars owner), DOM-free. The garage's data and every vehicle's physical stats.
      BODIES[id]  = { id, cls, price, stats: CarStats, seats?: n }       cls: 'hauler' | 'brute' | 'racer' | 'hover' | 'tank' | 'freak'
      WHEELS[id]  = { id, price, r, width, grip, mass }                  r, width metres; grip multiplier ~0.8..1.2
-     PAINTS[id]  = { id, price, kind: 'solid' | 'metal' | 'pattern', base: '#hex', metal: 0..1, rough: 0..1, secret? }
+     PAINTS[id]  = { id, price, kind: 'solid' | 'metal' | 'pattern', base: '#hex', metal: 0..1, rough: 0..1, secret?,
+                     low?: '#hex', stripe?: '#hex', stencil?: 'flame' }   14.1 two-tone metals: lower colour, pinstripe, stencil
+     STARTER     = the frozen build a new save starts in (14.1: monster body and wheels, paint m:furnace, decal none)
      DECALS[id], EXTRAS[id], BUDDIES[id] = { id, price, ...mods }        EXTRAS may carry stat mods: { mods: { grip: +0.03, ... } }
      NEW_* arrays: v13 ids in append order (never reordered once shipped)
      CarStats = { mass, wheelbase, track, cgH, rideH, wheelR, suspK, suspC, suspTravel, power, topSpeed, grip, driftGrip,
                   brake, steerMax, airControl, boostPower, armor, size: { l, w, h } }   (SI units; armor 0..1) */
   catalog: ['BODIES', 'WHEELS', 'PAINTS', 'DECALS', 'EXTRAS', 'BUDDIES',
     'NEW_BODY_IDS', 'NEW_WHEEL_IDS', 'NEW_PAINT_IDS', 'NEW_DECAL_IDS', 'NEW_EXTRA_IDS', 'NEW_BUDDY_IDS',
-    'price', 'stats'],   /* price(kind, id) -> stars; stats(build) -> CarStats (body + wheels + extras applied) */
+    'STARTER', 'price', 'stats'],   /* price(kind, id) -> stars; stats(build) -> CarStats (body + wheels + extras applied) */
 
   /* src/levels.js (worlds owner), DOM-free. World physics constants and all 120 levels.
      WORLDS[w] = { id: w, key, gravity (m/s2), airDrag, surf (default SURF key), monsters: [kind...], boss: kind }
@@ -218,7 +220,9 @@ const MODULE_API = {
 
   /* src/audio.js (ui owner). All synthesized Web Audio, one master compressor, quiet mode honoured.
      sfx(name, opts?)  names: SFX below. opts = { v: 0..1 volume, p: pitch multiplier, pan: -1..1, kind: monster kind }
-     engine.start(bodyId); engine.update({ rpm, load, speed, boost, air, surf }); engine.stop()
+     engine.start(bodyId); engine.update({ rpm, load, speed, boost, air, surf, drift?, slip? }); engine.stop()
+       drift: true while a power slide is held (tyre howl), slip: the highest wheel slip in contact
+     sfx('surface', { kind: SURF key }) is the surface-change voice (clank, crackle, slap, hiss, spray, splash)
      music.play(id) id: 'title' | 'garage' | 'map' | 'w1'..'w12' | 'boss' | 'results' ; music.stop(fadeS)
      ambience(world | 0) */
   audio: ['unlock', 'setQuiet', 'sfx', 'engine', 'music', 'ambience'],

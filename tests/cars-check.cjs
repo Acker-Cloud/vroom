@@ -35,7 +35,8 @@ check('v12 buddies are never free', L.BUDDY_ORDER.every(id => C.price('buddy', i
 const SHIPPED = {
   NEW_BODY_IDS: ['tusk', 'anvil', 'gnasher', 'howler', 'dredge', 'bulwark', 'cinder', 'wrecker'],
   NEW_WHEEL_IDS: ['spike', 'chain', 'paddle', 'rustrim', 'turbine', 'skullcap'],
-  NEW_PAINT_IDS: ['m:gunmetal', 'm:chrome', 'm:rust', 'm:molten', 'm:hazard', 'm:toxic', 'm:blackchrome', 'm:camo'],
+  NEW_PAINT_IDS: ['m:gunmetal', 'm:chrome', 'm:rust', 'm:molten', 'm:hazard', 'm:toxic', 'm:blackchrome', 'm:camo',
+    'm:furnace', 'm:venom', 'm:bonewhite', 'm:cobalt'],
   NEW_DECAL_IDS: ['skull', 'hazard', 'claws', 'cog', 'fangs'],
   NEW_EXTRA_IDS: ['rollcage', 'ram', 'sidepipes', 'searchlights', 'blower', 'plating'],
   NEW_BUDDY_IDS: ['gremlin', 'skullbot'],
@@ -51,13 +52,22 @@ for (const key of Object.keys(SHIPPED)) {
   for (const id of arr) {
     if (legacy.includes(id)) appendBad.push(key + ' reuses legacy ' + id);
     if (!table[id]) appendBad.push(key + ' ' + id + ' not in the table');
-    if (!(C.price(kind, id) > 0)) appendBad.push(key + ' ' + id + ' is free');
+    if (!(C.price(kind, id) > 0) && !(kind === 'color' && id === C.STARTER.color)) appendBad.push(key + ' ' + id + ' is free');
   }
   const extra = Object.keys(table).filter(id => !legacy.includes(id) && !arr.includes(id));
   if (extra.length) appendBad.push(kind + ' ids outside LEGACY and ' + key + ': ' + extra.join(','));
 }
 check('v13 appends are append-only, unique, in their tables and priced', appendBad.length === 0, appendBad.join(' | '));
 check('price() is undefined for unknown ids and kinds', C.price('body', 'nope') === undefined && C.price('nope', 'monster') === undefined && C.price('body', 'toString') === undefined);
+/* v14: the starter build for a fresh save is a two-tone metallic with a decal, every part free */
+const ST = C.STARTER, stPaint = ST && C.PAINTS[ST.color];
+check('the starter build is the Mauler in a free two-tone metallic that wears its own stencil',
+  !!ST && ST.body === 'monster' && C.price('body', ST.body) === 0 && C.price('wheels', ST.wheels) === 0 && !!stPaint && stPaint.kind === 'metal' && !!stPaint.low
+  && C.price('color', ST.color) === 0 && !stPaint.secret && ST.decal === 'none' && !!C.DECALS[stPaint.stencil] && stPaint.stencil !== 'none' && Object.isFrozen(ST),
+  JSON.stringify(ST));
+const twoTones = Object.values(C.PAINTS).filter(p => p.low);
+check('two-tone paints carry a low tone and a pinstripe, and only the starter is free',
+  twoTones.length >= 4 && twoTones.every(p => /^#[0-9a-f]{6}$/i.test(p.low) && /^#[0-9a-f]{6}$/i.test(p.stripe) && (p.id === ST.color || p.price > 0)), twoTones.map(p => p.id + '=' + p.price).join(' '));
 const newBodyPrices = SHIPPED.NEW_BODY_IDS.map(id => C.price('body', id));
 check('new machines cost 150 to 1500 stars', newBodyPrices.every(p => p >= 150 && p <= 1500), newBodyPrices.join(' '));
 
@@ -128,6 +138,41 @@ check('stats() is deterministic and never mutates the catalog',
   });
   check('every body builds, steers, springs, dents and disposes', rigs.bad.length === 0, rigs.bad.slice(0, 8).join(' | '));
   check('a fully dressed machine stays under 30 draw calls and 40k triangles', rigs.maxCalls <= 30 && rigs.maxTris <= 40000, `${rigs.maxCalls} calls (${rigs.worst}), ${rigs.maxTris} tris`);
+
+  /* v14 polish: every machine spits boost flame (an outer cone and a hot core per outlet, in one draw call),
+     every shared and paint material carries the edge light, and a two-tone paint splits inside its paint */
+  const look = await page.evaluate(() => {
+    const ctx = VROOM.game.ctx, Cat = VROOM.catalog, out = { fewPipes: [], flame: [], rim: [], tt: '' };
+    const car = (boosting, rpm) => ({ speed: 25, rpm, boosting, air: false, wheels: [0, 1, 2, 3].map(() => ({ comp: 0.4, steer: 0, spin: 0, contact: true })) });
+    const flameLen = (im, n) => { const m = new THREE.Matrix4(), p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3(); let max = 0; for (let i = 0; i < n; i++) { im.getMatrixAt(i, m); m.decompose(p, q, s); max = Math.max(max, s.y); } return max; };
+    for (const id of Object.keys(Cat.BODIES)) {
+      const r = VROOM.cars.buildCar(ctx, { body: id, wheels: 'monster', color: '#e53935' });
+      const n = r.anchors.exhaust.length;
+      if (n < 1) out.fewPipes.push(id + ':' + n);
+      let im = null; r.group.traverse(o => { if (o.isInstancedMesh && o.material && o.material.blending === THREE.AdditiveBlending && o.count === n * 2) im = o; });
+      if (!im || !im.instanceColor) out.flame.push(id + ' no flame mesh');
+      else {
+        r.update(car(false, 0.2), 1 / 60, 1); const idle = flameLen(im, n * 2);
+        r.update(car(true, 0.9), 1 / 60, 1.2); const boost = flameLen(im, n * 2);
+        if (!(idle < 0.01 && boost > 1.2)) out.flame.push(`${id} idle ${idle.toFixed(2)} boost ${boost.toFixed(2)}`);
+      }
+      r.group.traverse(o => { if (o.isMesh && !o.isInstancedMesh && o.material.isMeshStandardMaterial && o.material.vertexColors && !(o.material.userData.shade && o.material.userData.shade.uRim)) out.rim.push(id + ':' + o.name); });
+      r.dispose();
+    }
+    const r = VROOM.cars.buildCar(ctx, Cat.STARTER), paint = [];
+    r.group.traverse(o => { if (o.isMesh && o.name === 'paint') paint.push(o); });
+    const u = paint[0] && paint[0].material.userData.shade, ys = paint.flatMap(m => m.geometry.attributes.aBodyY ? Array.from(m.geometry.attributes.aBodyY.array) : []);
+    const lo = Math.min(...ys), hi = Math.max(...ys);
+    let decal = 0; r.group.traverse(o => { if (o.isMesh && o.name === 'decal') decal++; });
+    out.stencil = decal > 0;
+    out.tt = u && u.uSplit && ys.length && u.uSplit.value > lo && u.uSplit.value < hi && u.uLow.value.getHex() !== u.uHigh.value.getHex() ? '' : `split ${u && u.uSplit && u.uSplit.value} in ${lo}..${hi}`;
+    r.dispose();
+    return out;
+  });
+  check('every machine has an exhaust outlet', look.fewPipes.length === 0, look.fewPipes.join(' '));
+  check('boost lights long flame cones with hot cores; idle keeps them out', look.flame.length === 0, look.flame.slice(0, 6).join(' | '));
+  check('every lit body material carries the edge light', look.rim.length === 0, look.rim.slice(0, 6).join(' '));
+  check('the starter two-tone splits inside its painted parts and wears its flame stencils', look.tt === '' && look.stencil, look.tt);
 
   const parts = await page.evaluate(() => {
     const ctx = VROOM.game.ctx, Cat = VROOM.catalog, bad = [];

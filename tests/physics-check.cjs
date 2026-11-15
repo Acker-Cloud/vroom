@@ -166,39 +166,124 @@ const KICKER = [{ type: 'straight', len: 200, surf: 'asphalt' }, { type: 'ramp',
   check('no monster knock stops the car dead', minV > 2, `slowest after a hit ${minV.toFixed(1)} m/s`);
 }
 
-/* ---------- drift and tricks ---------- */
-{
-  const P = params(BASE), { st } = race([{ type: 'straight', len: 120, surf: 'asphalt' }, { type: 'bend', len: 160, angle: 1.6, w: 12, surf: 'asphalt' }, { type: 'straight', len: 600 }], P);
-  S.teleport(st, 90, 0, 30);
-  let v0 = 0, vmin = 1e9, banked = null, drifting = false, spun = false;
-  for (let k = 0; k < HZ * 9 && !banked; k++) {
-    const s = st.car.s, inBend = s > 110 && s < 270;
-    if (inBend && !v0) v0 = st.car.speed;
-    const bot = S.autopilot(st, 1);
-    S.step(st, { throttle: 1, steer: inBend && st.car.drift === 0 ? 0.8 : bot.steer, drift: inBend ? 1 : 0 });
-    for (const e of st.events) { if (e.type === 'driftBank') banked = e; if (e.type === 'drift' && e.on) drifting = true; if (e.type === 'spin') spun = true; }
-    if (inBend) vmin = Math.min(vmin, st.car.speed);
+/* ---------- nothing pins the car: a post-hit immunity window and a per-monster cool-down ----------
+   Shimmed AI: every actor sits glued to the car's nose, hot, for 5 s. One actor, then a pack of six. */
+function pinned(nActors) {
+  const AI = V.monsterAI, P = params(BASE), { tr, st } = race([{ type: 'straight', len: 1200, w: 9, surf: 'asphalt' }], P);
+  S.teleport(st, 40, 0, 20);
+  const K = AI.KINDS.rivetrat, hits = [];
+  V.monsterAI = { ...AI, think(a, ctx) { a.s = ctx.car.s + 0.5; a.d = ctx.car.d; a.h = 0; a.hot = true; a.state = 'lunge'; }, onHit() {} };
+  for (let i = 0; i < nActors; i++) st.actors.push({ i, kind: 'rivetrat', arche: K.arche, s: 0, d: 0, h: 0, x: 0, y: 0, z: 0, yaw: 0, vs: 0, vd: 0, vh: 0, state: 'lunge', stateT: 0, hp: 1, r: K.r, mass: K.mass, phase: 0, alive: true, boss: false, hot: true, knock: K.knock });
+  for (let k = 0; k < HZ * 5; k++) {
+    S.step(st, { throttle: 1 });
+    for (const e of st.events) if (e.type === 'monster' && e.what === 'hit') hits.push({ a: e.a, t: st.t });
     st.events.length = 0;
   }
-  check('a held drift through a bend (steered on the line) banks boost on exit', drifting && banked && banked.bonus > 0 && !spun, banked ? `t ${banked.t.toFixed(2)} s, +${banked.bonus.toFixed(2)}` : 'no driftBank');
-  check('a drift carries its speed (at least 80 percent)', vmin >= 0.8 * v0, `${v0.toFixed(1)} -> min ${vmin.toFixed(1)} m/s`);
+  V.monsterAI = AI;
+  const per = {};
+  for (const h of hits) per[h.a] = (per[h.a] || 0) + 1;
+  let gap = 1e9;
+  for (let k = 1; k < hits.length; k++) gap = Math.min(gap, hits[k].t - hits[k - 1].t);
+  return { total: hits.length, most: Math.max(0, ...Object.values(per)), gap };
 }
-/* a power slide, not a brake: 1 s of full lock + drift + gas on an open pad (no wall in reach) */
-for (const b of ['monster', 'race', 'bulldozer']) {
-  const P = params(b), { st } = race([{ type: 'straight', len: 300, w: 60, surf: 'asphalt' }, { type: 'straight', len: 600, w: 60, surf: 'asphalt' }], P);
-  S.teleport(st, 60, 0, Math.min(30, P.top * 0.75));
-  for (let k = 0; k < HZ; k++) { S.step(st, { throttle: 1 }); st.events.length = 0; }
-  const v0 = st.car.speed, g0d = st.car.gear;
-  let vmin = 1e9, bmax = 0, gmin = 9, held = true;
-  for (let k = 0; k < HZ; k++) {
-    S.step(st, { throttle: 1, steer: 1, drift: 1 }); st.events.length = 0;
-    const c = st.car, R = st.int.R, v = Math.hypot(c.vx, c.vy, c.vz) || 1;
-    vmin = Math.min(vmin, c.speed); gmin = Math.min(gmin, c.gear); if (!c.drift) held = false;
-    bmax = Math.max(bmax, Math.acos(Math.max(-1, Math.min(1, (c.vx * R[6] + c.vy * R[7] + c.vz * R[8]) / v))) * 180 / Math.PI);
+{
+  const one = pinned(1), pack = pinned(6);
+  check('a monster glued to the car hits it at most twice in 5 s (2.6 s cool-down per monster)', one.total >= 1 && one.most <= 2, `${one.total} hits, closest ${one.gap.toFixed(2)} s apart`);
+  check('a glued pack of six: at most 4 hits in 5 s and never two inside 1.6 s (immunity after any hit)', pack.total <= 4 && pack.gap >= 1.6 - 1e-9, `${pack.total} hits, most from one ${pack.most}, closest ${pack.gap.toFixed(2)} s apart`);
+}
+/* the whole campaign with a bot that ignores monsters (skill 0.3): the most hits one monster lands in any 5 s */
+{
+  let worstOne = 0, worstAll = 0, at = '', total = 0;
+  for (let n = 1; n <= C.PARADE_LEVEL; n++) {
+    const spec = V.levels.level(n), st = S.newRace(S.buildTrack(spec), params(BASE), { seed: spec.seed, mode: 'race' });
+    const hits = [];
+    while (!st.finished && st.tick < HZ * 300) {
+      S.step(st, S.autopilot(st, 0.3));
+      for (const e of st.events) if ((e.type === 'monster' || e.type === 'boss') && e.what === 'hit') hits.push({ a: e.a, t: st.t });
+      st.events.length = 0;
+    }
+    total += hits.length;
+    for (let i = 0; i < hits.length; i++) {
+      let one = 0, all = 0;
+      for (let j = i; j < hits.length && hits[j].t < hits[i].t + 5; j++) { all++; if (hits[j].a === hits[i].a) one++; }
+      if (one > worstOne) { worstOne = one; at = 'L' + n; }
+      worstAll = Math.max(worstAll, all);
+    }
   }
-  check(`a 1 s full-throttle drift (${b}) loses at most 10 percent speed and peaks at most 50 degrees of slip`, held && vmin >= 0.9 * v0 && bmax <= 50,
-    `${v0.toFixed(1)} -> min ${vmin.toFixed(1)} m/s, peak slip ${bmax.toFixed(0)} deg`);
-  check(`the gear readout holds through the drift (${b})`, gmin >= g0d - 1, `gear ${g0d} -> min ${gmin}`);
+  check('campaign, monster-blind bot: no monster lands more than 2 hits in any 5 s, no more than 4 hits from all of them', worstOne <= 2 && worstAll <= 4,
+    `worst one actor ${worstOne} (${at}), worst all ${worstAll}, ${total} monster hits over ${C.PARADE_LEVEL} levels`);
+}
+
+/* ---------- drift: a power slide ----------
+   On an open pad (no wall in reach): full gas, drift held for 2.5 s with the wheel held at sIn (+1 into the slide,
+   0 centred, -1 countersteer). The slip angle is the body's angle off its path, in the ground plane. */
+const PAD = [{ type: 'straight', len: 100, w: 300, walls: 0, surf: 'asphalt' }, { type: 'straight', len: 3000, w: 300, walls: 0, surf: 'asphalt' }];
+function slide(b, sIn, secs = 2.5, dir = 1) {
+  const P = params(b), { st } = race(PAD, P);
+  S.teleport(st, 200, 0, Math.min(30, P.top * 0.75));
+  for (let k = 0; k < HZ; k++) { S.step(st, { throttle: 1 }); st.events.length = 0; }
+  const v0 = st.car.speed, g0d = st.car.gear, out = { v0, vmin: 1e9, gmin: 9, held: true, spun: false, entry: 0, angs: [], bmax: 0, wmax: 0, bank: null, kick: 0 };
+  const n = Math.round(secs * HZ);
+  for (let k = 0; k < n + HZ; k++) {
+    const on = k < n;
+    S.step(st, { throttle: 1, steer: on ? (k < 2 ? dir : dir * sIn) : 0, drift: on ? 1 : 0 });
+    for (const e of st.events) { if (e.type === 'spin') out.spun = true; if (e.type === 'driftBank') { out.bank = e; out.kick = st.int.kickT; } }
+    st.events.length = 0;
+    if (!on) continue;
+    const c = st.car, R = st.int.R, vF = c.vx * R[6] + c.vy * R[7] + c.vz * R[8], vL = c.vx * R[0] + c.vy * R[1] + c.vz * R[2];
+    const beta = Math.abs(Math.atan2(vL, vF)) * 180 / Math.PI, wy = Math.abs(c.wx * R[3] + c.wy * R[4] + c.wz * R[5]);
+    if (!c.drift) out.held = false;
+    out.vmin = Math.min(out.vmin, c.speed); out.gmin = Math.min(out.gmin, c.gear); out.bmax = Math.max(out.bmax, beta);
+    if (k === Math.round(0.3 * HZ)) out.entry = beta;
+    if (k > 0.8 * HZ) { out.angs.push(beta); out.wmax = Math.max(out.wmax, wy); }
+  }
+  out.ang = out.angs.reduce((x, y) => x + y, 0) / (out.angs.length || 1);
+  out.g0d = g0d;
+  return out;
+}
+for (const b of ['monster', 'race', 'bulldozer']) {
+  const lo = slide(b, -1), mid = slide(b, 0), hi = slide(b, 1), all = [lo, mid, hi];
+  const keep = Math.min(...all.map(r => r.vmin / r.v0));
+  check(`drift (${b}): the rear steps out on entry (over 15 degrees of slip within 0.3 s)`, all.every(r => r.entry > 15), all.map(r => r.entry.toFixed(0)).join(' / ') + ' deg');
+  check(`drift (${b}): a held 2.5 s full-gas slide keeps at least 85 percent of its speed`, keep >= 0.85 && all.every(r => r.held && !r.spun),
+    `worst ${(keep * 100).toFixed(1)} percent (${lo.v0.toFixed(1)} m/s in), held ${all.every(r => r.held)}`);
+  check(`drift (${b}): the slide angle is controllable inside 20 to 45 degrees (countersteer < centred < steer in)`,
+    all.every(r => r.ang >= 20 && r.ang <= 45 && r.bmax <= 50) && lo.ang < mid.ang - 2 && mid.ang < hi.ang - 2,
+    `countersteer ${lo.ang.toFixed(1)}, centred ${mid.ang.toFixed(1)}, steer in ${hi.ang.toFixed(1)} deg (peak ${Math.max(...all.map(r => r.bmax)).toFixed(0)})`);
+  check(`drift (${b}): countersteer holds the slide, it does not spin (yaw under 1.2 rad/s once settled)`, lo.held && all.every(r => r.wmax < 1.2 && !r.spun),
+    `yaw ${all.map(r => r.wmax.toFixed(2)).join(' / ')} rad/s`);
+  check(`the gear readout holds through the drift (${b})`, all.every(r => r.gmin >= r.g0d - 1), `gear ${hi.g0d} -> min ${Math.min(...all.map(r => r.gmin))}`);
+}
+{
+  /* the exit: boost and the kick grow with the slide's length and its angle */
+  const short = slide(BASE, 0, 1), long = slide(BASE, 0, 2.5), wide = slide(BASE, 1, 1), tight = slide(BASE, -1, 1), tiny = slide(BASE, 0, 0.3);
+  const ok = [short, long, wide, tight].every(r => r.bank && r.bank.bonus > 0 && r.kick > 0);
+  check('drift exit boost scales with duration (2.5 s > 1 s) and angle (steer in > countersteer); under 0.5 s banks nothing',
+    ok && long.bank.bonus > short.bank.bonus && long.kick > short.kick && wide.bank.bonus > tight.bank.bonus && wide.kick > tight.kick && !tiny.bank,
+    ok ? `bonus 1 s ${short.bank.bonus.toFixed(3)}, 2.5 s ${long.bank.bonus.toFixed(3)}, wide ${wide.bank.bonus.toFixed(3)}, tight ${tight.bank.bonus.toFixed(3)}; kick ${short.kick.toFixed(2)} / ${long.kick.toFixed(2)} / ${wide.kick.toFixed(2)} / ${tight.kick.toFixed(2)} s` : 'no driftBank');
+}
+/* a held drift through real bends (R 100 m, both ways), steered on the line by a simple driver: clean, fast, banked */
+{
+  const bad = [], rows = [];
+  for (const b of ['monster', 'race', 'bulldozer']) for (const ang of [1.6, -1.6]) {
+    const P = params(b), { tr, st } = race([{ type: 'straight', len: 120, surf: 'asphalt' }, { type: 'bend', len: 160, angle: ang, w: 12, surf: 'asphalt' }, { type: 'straight', len: 600 }], P);
+    S.teleport(st, 90, 0, Math.min(30, P.top * 0.75));
+    const dir = ang > 0 ? 1 : -1;
+    let v0 = 0, vmin = 1e9, walls = 0, bank = null;
+    for (let k = 0; k < HZ * 9 && !bank; k++) {
+      const c = st.car, s = c.s, inBend = s > 110 && s < 270;
+      if (inBend && !v0) v0 = c.speed;
+      const f = S.frameAt(tr, s), vlat = c.vx * f.rx + c.vy * f.ry + c.vz * f.rz;
+      const steer = !inBend ? S.autopilot(st, 1).steer : c.drift === 0 ? dir * 0.8 : Math.max(-1, Math.min(1, -c.d * 0.4 - vlat * 0.5));
+      S.step(st, { throttle: 1, steer, drift: inBend ? 1 : 0 });
+      for (const e of st.events) { if (e.type === 'wall') walls++; if (e.type === 'driftBank') bank = e; }
+      st.events.length = 0;
+      if (inBend) vmin = Math.min(vmin, c.speed);
+    }
+    rows.push(`${b}${dir > 0 ? 'R' : 'L'} ${(vmin / v0 * 100).toFixed(0)}%${bank ? ' +' + bank.bonus.toFixed(2) : ''}`);
+    if (!bank || walls || vmin < 0.85 * v0) bad.push(`${b}${dir > 0 ? 'R' : 'L'}: bank ${!!bank} walls ${walls} keep ${(vmin / v0).toFixed(2)}`);
+  }
+  check('a held drift through a 100 m bend (each class, both ways) stays off the walls, keeps 85 percent speed and banks boost', bad.length === 0, bad.join('; ') || rows.join(', '));
 }
 {
   const pieces = [{ type: 'straight', len: 300, surf: 'asphalt' }, { type: 'ramp', len: 40, rise: 9, lip: 0.6 }, { type: 'gap', len: 140, drop: 20 }, { type: 'straight', len: 400, w: 12 }];

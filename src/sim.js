@@ -29,7 +29,15 @@ const LONG_MU = 1.25;         /* tyres hold more under braking and drive than si
 const TYRE_PEAK = 0.14;       /* slip angle (rad) of peak lateral grip; past it the tyre slides */
 const TYRE_FALL = 0.25;       /* grip lost by a fully sliding tyre (share of peak) */
 const TYRE_STIFF = 0.3;       /* share of the lateral slip a tyre can cancel per step */
-const DRIFT_SIDE = 0.4;       /* tyre side force kept in a drift: the drift's carve steers the path */
+const DRIFT_SIDE = 0;         /* tyre side force kept in a drift: none, the power slide below carries the path */
+const DRIFT_ANG = 0.57;       /* the slide's body angle out of its path (rad, 33 deg) with the wheel centred... */
+const DRIFT_ANG_STEER = 0.18; /* ...opened by steering into the turn, closed by countersteer (22 to 43 deg) */
+const DRIFT_G = 1.0;          /* the slide's path curves at this share of the tyres' grip with the wheel centred... */
+const DRIFT_G_STEER = 0.7;    /* ...tighter steering in (1.7), wider countersteering (0.3) */
+const DRIFT_KICK = 2.2;       /* rad/s of yaw on entry: the rear steps out */
+const DRIFT_SCRUB = 0.05;     /* share of speed a held, full-throttle slide scrubs per second */
+const HIT_IMMUNE = 1.6;       /* seconds after any monster hit in which no monster can touch the car */
+const ACTOR_COOL = 2.6;       /* seconds before the same monster can touch the car again: nothing pins you */
 const WALL_E = 0.2, WALL_MU = 0.1;      /* barrier: restitution and tangential friction */
 const WALL_ANG = 0.3;         /* share of a wall impulse's turning effect: cars glance along walls */
 const HULL_E = 0.12, HULL_MU = 0.16;    /* the body on the ground (roof landings, bottoming out) */
@@ -398,7 +406,7 @@ function newInternal(st) {
     R: new Float64Array(9), om: new Float64Array(3), sf: new Float64Array(2), tgt: [0, 0, 0], surfCount: new Uint8Array(16), inp: { steer: 0, throttle: 0, brake: 0, boost: 0, drift: 0 }, qc: mkQuery(), qh: mkQuery(),
     qw: [mkQuery(), mkQuery(), mkQuery(), mkQuery()], wf: new Float64Array(4), wx: new Float64Array(4), wvn: new Float64Array(4),
     steer: 0, airTicks: 0, takeoffVy: 0, rotP: 0, rotR: 0, rotY: 0, trickN: [0, 0, 0], tricksPending: 0,
-    driftClean: true, driftHold: 0, kickT: 0, spinDir: 1, spinLeft: 0, spinRate: 0, prevH: 0, flipT: 0, stuckT: 0, loopAirT: 0,
+    driftClean: true, driftHold: 0, driftAng: 0, hitImmune: 0, kickT: 0, spinDir: 1, spinLeft: 0, spinRate: 0, prevH: 0, flipT: 0, stuckT: 0, loopAirT: 0,
     cpI: -1, cpS: START_S, fallsHere: 0, progS: START_S, progT: 0, patchN: 0, patches: new Int32Array(8), nC: 0, vfwd: 0, landVn: 0, wallV: 0, wallSide: 0, touchSide: 0, scrapeV: 0, slipMax: 0, oilN: 0, lastGroundS: START_S, craneS: START_S, wallCool: 0, scrapeCool: 0, onOil: 0, hull: false,
     propCool: new Float64Array(st.track.props.length), flying: [], actorCool: [], bossDone: [], lastSurf: -1, lastCP: -1,
     ctx: null, why: '',
@@ -682,17 +690,25 @@ function physics(st, inp, lost) {
     let wt, gain;
     if (spinning) { wt = I.spinLeft > 0.25 ? I.spinDir * I.spinRate : 0; gain = 12; I.spinLeft -= Math.abs(wy) * DT; }
     else if (driftOn) {
+      /* the power slide: the path curves at a steerable share of the grip, the body holds a steerable angle out
+         of it (steer in opens it up and tightens the line, countersteer closes it and widens the line, either
+         way the slide holds), and the speed is held, scrubbing a little */
+      const sIn = clamp(inp.steer * c.drift, -1, 1);
       const beta = M.datan2(vL, Math.max(Math.abs(vF), 1));
-      const bt = c.drift * clamp(0.45 + 0.25 * inp.steer * c.drift, 0.2, 0.75);
-      const carve = -c.drift * 0.5 * (1 + clamp(inp.steer * c.drift, -1, 1)) * clamp(vF / 20, 0, 1.2) * gf;
+      const bt = c.drift * (DRIFT_ANG + DRIFT_ANG_STEER * sIn);
+      const vP = Math.sqrt(vF * vF + vL * vL);
+      const carve = -c.drift * (DRIFT_G + DRIFT_G_STEER * sIn) * gf * P.grip * g / Math.max(vP, 8);
       wt = carve - 3 * (bt - beta); gain = 9;
-      /* the drift carves: velocity turns with the car, and a held drift keeps most of its speed */
-      const ang = carve * 0.8 * DT, ca = M.dcos(ang), sa = M.dsin(ang);
+      I.driftAng += Math.abs(beta) * DT;
+      const ang = carve * DT, ca = M.dcos(ang), sa = M.dsin(ang);
       const vpx = vF * fpx + vL * spx, vpy = vF * fpy + vL * spy, vpz = vF * fpz + vL * spz;
       const rotF = vF * ca - vL * sa, rotL = vF * sa + vL * ca;
       c.vx += rotF * fpx + rotL * spx - vpx; c.vy += rotF * fpy + rotL * spy - vpy; c.vz += rotF * fpz + rotL * spz - vpz;
-      const vnow = len3(c.vx, c.vy, c.vz), keep = vfBefore * (1 - 0.1 * DT);
-      if (vnow > 0.1 && vnow < keep) { const k2 = keep / vnow; c.vx *= k2; c.vy *= k2; c.vz *= k2; }
+      const vnow = len3(c.vx, c.vy, c.vz);
+      const lo = vfBefore * (1 - (DRIFT_SCRUB + 0.3 * (1 - inp.throttle) + 0.9 * inp.brake) * DT);
+      const hi = Math.max(lo, Math.min(vfBefore + 1.5 * inp.throttle * DT, boosting || I.kickT > 0 ? vb : P.top));
+      const k2 = vnow > 0.1 ? clamp(vnow, lo, hi) / vnow : 1;
+      c.vx *= k2; c.vy *= k2; c.vz *= k2;
     } else {
       const vmaxW = gf * P.grip * 9.8 / Math.max(Math.abs(vF), 3);
       wt = clamp(-vF * M.dsin(delta) / (M.dcos(delta) * P.wb), -vmaxW, vmaxW); gain = 8 * gf;
@@ -860,8 +876,8 @@ function bookkeeping(st, inp, lost) {
   /* drift: enter with the drift control + a steer at speed; ends on release, when slow, or knocked */
   const ground = I.nC >= 2;
   if (!c.drift && ground && !lost && inp.drift && Math.abs(inp.steer) > 0.2 && I.vfwd > 13) {
-    c.drift = inp.steer > 0 ? 1 : -1; c.driftT = 0; I.driftClean = true; I.driftHold = 0;
-    const dw = -c.drift * 1.4;
+    c.drift = inp.steer > 0 ? 1 : -1; c.driftT = 0; I.driftClean = true; I.driftHold = 0; I.driftAng = 0;
+    const dw = -c.drift * DRIFT_KICK;
     c.wx += R[3] * dw; c.wy += R[4] * dw; c.wz += R[5] * dw;
     emit(st, 'drift', { on: 1 });
   } else if (c.drift) {
@@ -886,9 +902,11 @@ function bookkeeping(st, inp, lost) {
 function endDrift(st, clean) {
   const c = st.car, I = st.int;
   if (clean && I.driftClean && c.driftT >= 0.5) {
-    const bonus = Math.min(0.3, 0.1 * c.driftT);
+    /* the exit kick and the banked boost grow with the slide's length and its mean angle */
+    const angF = clamp(I.driftAng / c.driftT / DRIFT_ANG, 0.4, 1.3);
+    const bonus = Math.min(0.35, 0.1 * c.driftT * angF);
     c.boost = Math.min(1, c.boost + bonus);
-    I.kickT = Math.min(1.2, 0.35 * c.driftT);
+    I.kickT = Math.min(1.4, 0.35 * c.driftT * angF);
     emit(st, 'driftBank', { t: c.driftT, bonus });
   }
   c.drift = 0;
@@ -1012,18 +1030,19 @@ function monsters(st) {
   ctx.tick = st.tick;
   const n0 = st.actors.length;
   for (let k = 0; k < n0; k++) { const a = st.actors[k]; if (a.alive && a.state !== 'gone') AI.think(a, ctx); }
+  if (I.hitImmune > 0) I.hitImmune -= DT;
   if (c.respawnT > 0) return;
   for (let k = 0; k < st.actors.length; k++) {
     const a = st.actors[k];
     if (I.actorCool[k] > 0) { I.actorCool[k] -= DT; continue; }
-    if (!a.alive || a.state === 'gone' || a.hot === false) continue;
+    if (I.hitImmune > 0 || !a.alive || a.state === 'gone' || a.hot === false) continue;
     const K = KINDS[a.kind] || {};
     const ds = a.s - c.s, dd = a.d - c.d, rad = (a.r || K.r || 1) + P.carR * 0.8;
     if (ds * ds + dd * dd >= rad * rad) continue;
     const ah = a.h || 0, tall = K.h || 2;
     if (c.h > ah + tall + 0.5 || c.h + P.h < ah - 0.5) continue;
     knock(st, a, K, ds, dd);
-    I.actorCool[k] = 0.9;
+    I.actorCool[k] = ACTOR_COOL; I.hitImmune = HIT_IMMUNE;
     st.stats.hits++; I.driftClean = false;
     emit(st, a.boss ? 'boss' : 'monster', { a: a.i, what: 'hit' });
     AI.onHit(a, ctx);
@@ -1269,9 +1288,13 @@ function autopilot(st, skill = 1) {
   if (skill > 0.35) {
     for (const a of st.actors) {
       if (!a.alive || a.state === 'gone' || nh >= 32) continue;
+      /* a boss keeping station is scenery; dodge it when it is live, dazed in the road or winding up a charge */
+      if (a.boss && !a.hot && a.state !== 'stagger' && !(a.state === 'tell' && a.move === 'charge')) continue;
       const ds = a.s - s;
       if (ds < -2 || ds > 18 + 30 * skill) continue;
-      hz[nh * 2] = a.d; hz[nh * 2 + 1] = (a.r || 1.5) + P.w * 0.5 + 1.2; nh++;
+      /* a charge wind-up is dodged where the strike will end (the near half of the road), not where the boss stands */
+      const charge = a.boss && a.state === 'tell' && a.move === 'charge';
+      hz[nh * 2] = charge ? a.side * a.r * 0.9 : a.d; hz[nh * 2 + 1] = (a.r || 1.5) + P.w * 0.5 + 1.2; nh++;
     }
   }
   if (nh) {

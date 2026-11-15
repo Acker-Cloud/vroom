@@ -57,7 +57,7 @@ function race(n, driver, opt = {}) {
   for (const m of spec.monsters) { const a = AI.spawn(m, T, ctx); if (a) { a.i = st.actors.length; st.actors.push(a); } }
   if (spec.boss) { const a = AI.spawn({ ...spec.boss, boss: true }, T, ctx); if (a) { a.i = st.actors.length; st.actors.push(a); } }
   st.actors.forEach((a, i) => { a.i = i; });
-  const told = new Map(), lastHit = new Map(), out = { n, hits: 0, untold: [], double: [], idleHot: [], nonfinite: [], bossAhead: 0, ev: {}, stun: 0, t: 0, h: 2166136261 >>> 0, boss: null, finishedBehind: true };
+  const told = new Map(), lastHit = new Map(), out = { n, hits: 0, untold: [], double: [], idleHot: [], nonfinite: [], bossInPath: 0, bossChase: 0, bossInView: 0, bossAlong: 0, ev: {}, stun: 0, t: 0, h: 2166136261 >>> 0, boss: null, finishedBehind: true, bossAtFlag: null };
   const mix = x => { const f = new Float64Array([x]), u = new Uint32Array(f.buffer); out.h = Math.imul(out.h ^ u[0], 16777619) >>> 0; out.h = Math.imul(out.h ^ u[1], 16777619) >>> 0; };
   let stunT = 0, v = 0;
   const F = {};
@@ -75,8 +75,13 @@ function race(n, driver, opt = {}) {
       const k = K[a.kind];
       if (!Number.isFinite(a.x + a.y + a.z + a.s + a.d + a.h + a.yaw)) out.nonfinite.push(a.kind);
       if (a.hot && (a.state === 'idle' || a.state === 'gone' || (a.state === 'tell' && a.knock !== k.bump))) out.idleHot.push(a.kind + ':' + a.state);
-      if (a.boss && !a.defeated && (a.state === 'chase' || a.state === 'tell') && a.s > car.s && Math.abs(a.d) < S.frameAt(T, a.s, F).hw + 0.5) out.bossAhead++;
-      if (a.boss && a.surgeT > 0 && Math.abs(a.d) > S.frameAt(T, a.s, F).hw + k.r * 0.5) out.surged = (out.surged || 0) + 1;
+      if (a.boss && !a.defeated && (a.state === 'chase' || a.state === 'tell' || a.state === 'recover')) {
+        /* the chase (not the tick a strike ends): never a body in the car's path close ahead, mostly in the chase camera's frame (ahead within 32 m, or level beside the road) */
+        const hwB = S.frameAt(T, a.s, F).hw, ds = a.s - car.s;
+        if (!(a.state === 'recover' && a.stateT < 0.05) && ds > 0 && ds < 10 && Math.abs(a.d - car.d) < k.r + CAR_R && Math.abs(a.d) < hwB + 0.5) out.bossInPath++;
+        if (car.s > 120 && car.s < fin - 160) { out.bossChase++; if (ds > -6 && Math.hypot(ds, a.d - car.d) < 32) out.bossInView++; }
+        if (Math.abs(ds) < 8 && Math.abs(a.d) > hwB + k.r * 0.5) out.bossAlong++;
+      }
       if (!a.hot) continue;
       const ds = a.s - car.s, dd = a.d - car.d;
       if (ds * ds + dd * dd > (a.r + CAR_R) * (a.r + CAR_R) || car.h > a.h + k.h || car.h + 1.6 < a.h) continue;
@@ -107,6 +112,7 @@ function race(n, driver, opt = {}) {
   for (const a of st.actors) AI.think(a, ctx);
   for (const e of st.events) out.ev[e.type + ':' + e.what] = (out.ev[e.type + ':' + e.what] || 0) + 1;
   out.boss = st.actors.find(a => a.boss) || null;
+  if (out.boss) out.bossAtFlag = { ds: out.boss.s - car.s, beside: Math.abs(out.boss.d) > S.frameAt(T, out.boss.s, F).hw };
   if (out.boss && !out.boss.defeated) out.finishedBehind = false;
   out.actors = st.actors;
   return out;
@@ -160,8 +166,13 @@ const fin = all.filter(r => V.levels.level(r.n).boss);
 check('every finale has a boss that enters, attacks at least twice and is defeated at the flag',
   fin.length >= 24 && fin.every(r => r.ev['boss:enter'] >= 1 && (r.ev['boss:attack'] || 0) >= 2 && r.ev['boss:defeat'] === 1 && r.finishedBehind),
   fin.filter(r => !(r.ev['boss:enter'] >= 1 && (r.ev['boss:attack'] || 0) >= 2 && r.ev['boss:defeat'] === 1)).map(r => r.n + JSON.stringify(r.ev)).slice(0, 2).join(' '));
-check('a chasing boss never gets ahead of the car on the road',  fin.every(r => r.bossAhead === 0), fin.map(r => r.bossAhead).join(','));
-check('bosses surge level with the car beside the road in most finales (visible from the chase camera)', fin.filter(r => r.surged > 0).length >= fin.length * 0.6, fin.filter(r => r.surged > 0).length + '/' + fin.length);
+check('a chasing boss is never a body in the car\'s path within 10 m ahead', fin.every(r => r.bossInPath === 0), fin.filter(r => r.bossInPath).map(r => r.n + ':' + r.bossInPath).join(' '));
+const viewShare = fin.map(r => r.bossInView / Math.max(1, r.bossChase)), worstView = Math.min(...viewShare);
+check('a chasing boss stays on screen: ahead within 32 m (or level) for at least 80 percent of every chase', worstView >= 0.8,
+  `worst ${(worstView * 100).toFixed(0)}%, mean ${(viewShare.reduce((x, y) => x + y, 0) / viewShare.length * 100).toFixed(0)}%`);
+check('bosses come level with the car beside the road (enter, charge wind-up) in every finale', fin.every(r => r.bossAlong > 0), fin.filter(r => !r.bossAlong).map(r => r.n).join(' '));
+check('a boss is outrun at the flag: behind the car or beside the road when it is defeated', fin.every(r => r.bossAtFlag && (r.bossAtFlag.ds < 0 || r.bossAtFlag.beside)),
+  fin.filter(r => !(r.bossAtFlag && (r.bossAtFlag.ds < 0 || r.bossAtFlag.beside))).map(r => r.n + ':' + JSON.stringify(r.bossAtFlag)).slice(0, 4).join(' '));
 check('an outrun boss pays a bonus (1 or 2 stars) and AI.bonus() sums it', fin.every(r => r.boss.bonus >= 1 && AI.bonus(r.actors) === r.boss.bonus));
 const moves = new Set();
 for (let n = 10; n <= 120; n += 10) race(n, plough, { each: st => { for (const a of st.actors) if (a.boss && a.move) moves.add(K[a.kind].world + ':' + a.move); } });

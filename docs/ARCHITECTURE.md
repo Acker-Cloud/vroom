@@ -129,6 +129,6 @@ lead in each world's scale; every song is original.
 
 ## Tests
 
-See [tests/README.md](../tests/README.md): 15 suites, Node and headless Chromium, plus ESLint over the
+See [tests/README.md](../tests/README.md): 16 suites, Node and headless Chromium, plus ESLint over the
 assembled script. `npm test` builds `preview/test.html` and serves it, so the shipped `index.html` is
 only checked for freshness (`build-check`).
