@@ -7,7 +7,8 @@
      - VROOM1 compact codes are format 3: count-prefixed lists, so appended ids never break old codes.
        New code fields go on the END of the v3 tail behind a `pos + n <= bytes.length * 8` guard.
      - New JSON fields get a default in load() for older saves. Unknown fields round-trip untouched.
-   tests/save-check.cjs replays tests/fixtures/v12-saves.json (captured from the v12.9 game) through this file.
+   tests/save-check.cjs replays tests/fixtures/v12-saves.json (captured from the v12.9 game) and
+   tests/fixtures/v13.29-saves.json (the last hosted 2D build, 13.29) through this file.
    DOM-light on purpose: localStorage / location / history are reached through guards so Node can run it. */
 
 const C = VROOM.contracts, L = C.LEGACY;
@@ -61,6 +62,7 @@ const UPG = { engine: [60, 150, 350], armor: [50, 120, 300], magnet: [40, 100, 2
 const MAX_DAMAGE = 9, REPAIR_RATE = 2;
 const FUEL_MAX = 8, TREAD_MAX = 8;   /* v12 upkeep: retired from play in v13 but kept and round-tripped in saves */
 const TIER_RANK = { S: 3, A: 2, B: 1, C: 0 };
+const PHOTO_SLOTS = C.WORLD_COUNT + 1;   /* 13.23 photo wall: a frame per world and the parade's */
 const NUMBER_RE = /^\d{1,2}$/;
 const clampInt = (v, a, b) => (Number.isFinite(v) ? Math.min(b, Math.max(a, Math.floor(v))) : a);
 
@@ -71,6 +73,8 @@ const progress = {
   wallet: 0, owned: { body: [], wheels: [], color: [], extras: [], buddy: [], decal: [] }, levels: {}, current: 1,
   muddy: false, fuel: FUEL_MAX, tread: TREAD_MAX, damage: 0, upgrades: { engine: 0, armor: 0, magnet: 0, tank: 0, springs: 0 },
   quiet: false, badges: [], photos: [], lastGift: '',
+  /* 13.x fields of the 2D line (13.1..13.29), unused here but kept and written back: the free-drive day and its stars, what the album has shown */
+  freeDay: '', freeUsed: 0, albumSeen: [],
   /* v13 fields (13.0): bosses = worlds whose finale boss is beaten; ctrl = control scheme (0 pedals + wheel, 1 tilt, 2 buttons) and steering sensitivity 1..3 */
   bosses: [], ctrl: { mode: 0, sens: 2 },
 };
@@ -86,7 +90,9 @@ const meta = { active: 0, avatars: ['pup', null, null] };
     const m = JSON.parse(lsGet('vroom.meta'));
     if (m && Number.isInteger(m.active) && Array.isArray(m.avatars)) {
       meta.active = Math.min(MAX_PROFILES - 1, Math.max(0, m.active));
-      meta.avatars = [0, 1, 2].map(i => AVATAR_IDS.includes(m.avatars[i]) ? m.avatars[i] : (i === 0 ? 'pup' : null));
+      meta.avatars = [0, 1, 2].map(i => AVATAR_IDS.includes(m.avatars[i]) ? m.avatars[i] : null);
+      /* 13.x: a deleted slot stays empty (even slot 0); the active one always wears a face */
+      if (!meta.avatars[meta.active]) meta.avatars[meta.active] = AVATAR_IDS.find(a => !meta.avatars.includes(a)) || 'pup';
     }
   } catch (e) {}
   /* migrate the single-profile era: vroom.v2 becomes profile 0 */
@@ -159,10 +165,11 @@ function apply(saved) {
   if (saved.owned && Array.isArray(saved.owned.buddy)) progress.owned.buddy = saved.owned.buddy.filter(id => BUDDY_ORDER.includes(id));
   state.buddy = b.buddy && BUDDY_ORDER.includes(b.buddy) ? b.buddy : null;
   if (Array.isArray(saved.badges)) progress.badges = saved.badges.filter(id => BADGE_IDS.includes(id));
-  if (Array.isArray(saved.photos)) {
-    progress.photos = saved.photos.slice(0, 6).filter(p =>
-      p && p.b && p.b.extras && BODY_ORDER.includes(p.b.body) && WHEEL_ORDER.includes(p.b.wheels) && COLORS.includes(p.b.color));
+  if (Array.isArray(saved.photos)) {   /* v12 kept the 6 latest finishes, 13.23 one per world plus the parade (13) */
+    progress.photos = saved.photos.filter(p =>
+      p && p.b && p.b.extras && BODY_ORDER.includes(p.b.body) && WHEEL_ORDER.includes(p.b.wheels) && COLORS.includes(p.b.color)).slice(0, PHOTO_SLOTS);
   }
+  progress.albumSeen = Array.isArray(saved.albumSeen) ? saved.albumSeen.filter(k => typeof k === 'string').slice(0, 60) : [];
   if (Number.isFinite(saved.damage)) progress.damage = Math.min(MAX_DAMAGE, Math.max(0, Math.floor(saved.damage)));
   progress.fuel = Number.isFinite(saved.fuel) ? Math.min(FUEL_MAX + 6, Math.max(0, saved.fuel)) : FUEL_MAX;
   progress.tread = Number.isFinite(saved.tread) ? Math.min(TREAD_MAX, Math.max(0, saved.tread)) : TREAD_MAX;
@@ -171,6 +178,8 @@ function apply(saved) {
   }
   progress.fuel = Math.min(FUEL_MAX + 2 * progress.upgrades.tank, progress.fuel);
   progress.lastGift = typeof saved.lastGift === 'string' ? saved.lastGift : '';
+  progress.freeDay = typeof saved.freeDay === 'string' ? saved.freeDay : '';
+  progress.freeUsed = Number.isFinite(saved.freeUsed) ? Math.max(0, Math.floor(saved.freeUsed)) : 0;
   /* 13.0 fields: older saves get the defaults */
   progress.bosses = Array.isArray(saved.bosses) ? [...new Set(saved.bosses.filter(w => Number.isInteger(w) && w >= 1 && w <= C.WORLD_COUNT))].sort((a, b) => a - b) : [];
   const ctrl = saved.ctrl || {};
@@ -411,10 +420,10 @@ function unpackCompact(code) {
 }
 /* full text code: the entire save, gzip-compressed where the platform can */
 async function exportFullCode() {
-  /* ghost traces, replays and the daily gift stamp are local keepsakes: they never ride in a save code */
+  /* ghost traces, replays, the daily gift and free-drive stamps and the album's seen list are local keepsakes: they never ride in a save code */
   const levels = {};
   for (const n in progress.levels) { const { ghost, replay, ...rest } = progress.levels[n]; void ghost; void replay; levels[n] = rest; }
-  const json = JSON.stringify({ ...snapshot(), levels, lastGift: undefined });
+  const json = JSON.stringify({ ...snapshot(), levels, lastGift: undefined, freeDay: undefined, freeUsed: undefined, albumSeen: undefined });
   if (typeof CompressionStream !== 'undefined') {
     const stream = new Blob([json]).stream().pipeThrough(new CompressionStream('gzip'));
     const buf = await new Response(stream).arrayBuffer();
@@ -423,7 +432,9 @@ async function exportFullCode() {
   return 'VROOM3.' + b64url.enc(new TextEncoder().encode(json));
 }
 async function decodeSaveCode(code) {
-  code = (code || '').trim();
+  /* 13.x: a code pasted back from a message comes wrapped in whatever text rode along with it: pick the token out */
+  const m = /VROOM[123]\.[A-Za-z0-9_-]+/.exec(code || '');
+  code = m ? m[0] : (code || '').trim();
   if (code.startsWith('VROOM1.')) return unpackCompact(code.slice(7));
   if (code.startsWith('VROOM2.')) {
     const stream = new Blob([b64url.dec(code.slice(7))]).stream().pipeThrough(new DecompressionStream('gzip'));
@@ -439,7 +450,12 @@ async function checkCode(code) {
   return data && data.owned && Number.isFinite(data.wallet) ? data : null;
 }
 /* the player confirmed: the decoded data becomes this profile's save (the caller reloads the page) */
-function importData(data) { lsSet(saveKey(), JSON.stringify(data)); }
+function importData(data) {
+  /* a 13.x full code carries the player's avatar: it comes along when no other slot wears it already */
+  const { avatar, ...rest } = data;
+  if (AVATAR_IDS.includes(avatar) && !meta.avatars.some((a, i) => a === avatar && i !== meta.active)) { meta.avatars[meta.active] = avatar; saveMeta(); }
+  lsSet(saveKey(), JSON.stringify(rest));
+}
 /* a save code in the URL (a scanned QR opened the hosted game): read once at load, then cleared */
 let hashCode = '';
 try {

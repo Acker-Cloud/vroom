@@ -1,11 +1,11 @@
 # VROOM: notes for Claude Code
 
-VROOM 13 is a late-90s console style metal grunge 3D racer (three.js r170) for players around 10 to 12.
+VROOM 14 (the metal overhaul) is a late-90s console style metal grunge 3D racer (three.js r170) for players around 10 to 12.
 Sources live in `src/`; `npm run build` assembles the one shipped `index.html` (three.js inlined, every
 module in its own `<script>`). Never hand-edit `index.html`. Read `docs/OVERHAUL.md` (the design and the
 module map), `src/contracts.js` (the binding interfaces and frozen ids), `CONTRIBUTING.md` (the rules)
 and `docs/ARCHITECTURE.md` (how the pieces fit). `SPEC.md` is the design spec, `TASKS.md` the log.
-v12 (the 2D toybox) lives in `legacy/v12/` for reference only.
+v12 (the 2D toybox) lives in `legacy/v12/` and the last hosted 2D build, 13.29, in `legacy/v13.29/`, for reference only.
 
 ## Rules that the suite and the user both enforce
 

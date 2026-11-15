@@ -1,11 +1,15 @@
 /* save-check: v12 saves and save codes still load in v13. Owner: integrator. Node only.
    tests/fixtures/v12-saves.json was captured from the shipped v12.9 game (legacy/v12/index.html):
-   its localStorage saves, its VROOM1 compact codes and VROOM2 full codes, and its catalog lists. */
+   its localStorage saves, its VROOM1 compact codes and VROOM2 full codes, and its catalog lists.
+   tests/fixtures/v13.29-saves.json was captured the same way from the last hosted 2D build (legacy/v13.29/index.html):
+   a three-slot localStorage with a deleted slot 0, the 13.x fields (photo wall, album seen list, free-drive day),
+   and its VROOM1, VROOM2 and VROOM3 codes. */
 'use strict';
 const fs = require('fs'), path = require('path');
 const { check, done } = require('./lib.cjs');
 const { simSource, ROOT } = require('../scripts/build.cjs');
 const fx = require('./fixtures/v12-saves.json');
+const f13 = require('./fixtures/v13.29-saves.json');
 
 /* a fresh VROOM with the sim region and save.js loaded over the given localStorage contents */
 function boot(ls = {}) {
@@ -52,6 +56,74 @@ const sameSet = (a, b) => same([...(a || [])].sort(), [...(b || [])].sort());
     check(`${c.label}: the v12 VROOM2 full code decodes`, !!full && full.wallet === sv.wallet && same(full.owned, sv.owned));
     const re = S.unpackCompact(S.packCompact().slice(7));
     check(`${c.label}: a v13 code round-trips the loaded save`, re.wallet === sv.wallet && sameSet(re.owned.body, sv.owned.body) && re.build.body === S.state.body && same(re.upgrades, sv.upgrades));
+  }
+
+  /* 13.29: the 2D line kept shipping after v12.9; its players' saves and codes load whole */
+  {
+    const L13 = f13.lists, Lg = V.contracts.LEGACY;
+    for (const k of ['BODY_ORDER', 'WHEEL_ORDER', 'COLORS', 'DECAL_ORDER', 'BUDDY_ORDER', 'EXTRAS', 'BADGES', 'CODE_BODIES', 'CODE_WHEELS', 'CODE_COLORS', 'CODE_EXTRAS', 'CODE_DECALS', 'CODE_BADGES'])
+      check(`13.29 appended nothing to ${k}: LEGACY matches it`, same(Lg[k], L13[k]));
+    check('13.29 avatars are the six save.AVATAR_IDS', same(V.save.AVATAR_IDS, L13.AVATAR_IDS));
+    const sv = f13.played.saved, ls = f13.localStorage;
+    const { S: P2 } = boot(ls);
+    check('13.29 profiles: the active slot and a deleted slot 0 load as they were', P2.meta.active === 2 && same(P2.meta.avatars, [null, 'kitty', 'monkey']), JSON.stringify(P2.meta));
+    check('13.29 profiles: the active kid\'s own save loads', P2.progress.wallet === 88 && Object.keys(P2.progress.levels).length === 3 && P2.state.body === 'police' && same(P2.progress.owned.buddy, ['pup']));
+    const { S: P, mem } = boot({ ...ls, 'vroom.meta': JSON.stringify({ active: 1, avatars: [null, 'kitty', 'monkey'] }) });
+    const pr = P.progress, st = P.state, b = sv.build;
+    check('13.29 save: wallet, current, damage, mud, quiet, fuel and tread load', pr.wallet === sv.wallet && pr.current === sv.current && pr.damage === sv.damage && pr.muddy === sv.muddy && pr.quiet === sv.quiet && pr.fuel === sv.fuel && pr.tread === sv.tread);
+    check('13.29 save: every owned list loads (secret paint too)', ['body', 'wheels', 'color', 'extras', 'decal', 'buddy'].every(k => same(pr.owned[k], sv.owned[k])), JSON.stringify(pr.owned));
+    check('13.29 save: upgrades and badges load', same(pr.upgrades, sv.upgrades) && same(pr.badges, sv.badges));
+    check('13.29 save: all 96 levels keep best, rating, tier, time and ghost', Object.keys(sv.levels).length === 96 && same(pr.levels, sv.levels));
+    check('13.29 save: the build loads', st.body === b.body && st.wheels === b.wheels && st.color === b.color && st.buddy === b.buddy && st.decal === b.decal && st.number === b.number
+      && Object.keys(b.extras).every(k => st.extras[k] === b.extras[k]), JSON.stringify(st));
+    check('13.23 photo wall: all 11 frames load (10 worlds and the parade), not the v12 six', sv.photos.length === 11 && same(pr.photos, sv.photos), String(pr.photos.length));
+    check('13.x album seen list, free-drive day and daily gift load', same(pr.albumSeen, sv.albumSeen) && pr.freeDay === sv.freeDay && pr.freeUsed === sv.freeUsed && pr.lastGift === sv.lastGift);
+    P.save();
+    const re = JSON.parse(mem.get('vroom.v2.p1'));
+    check('13.29 save: re-saved, every 13.29 field is written back unchanged', Object.keys(sv).filter(k => k !== 'build').every(k => same(re[k], sv[k])),
+      Object.keys(sv).filter(k => k !== 'build' && !same(re[k], sv[k])).join(','));
+    check('13.29 save: re-saved, the build keeps every 13.29 part', Object.keys(b).filter(k => k !== 'extras').every(k => re.build[k] === b[k]) && Object.keys(b.extras).every(k => re.build.extras[k] === b.extras[k]));
+    check('13.29 save: re-saving leaves the other slots alone', mem.get('vroom.v2.p2') === ls['vroom.v2.p2'] && !mem.has('vroom.v2.p0'));
+    const { S: P3 } = boot(Object.fromEntries(mem));
+    check('13.29 save: a second load of the re-saved file is identical', same(P3.snapshot(), P.snapshot()));
+
+    /* records only improve: the 13.29 tier and v12-era time stay when a v14 run is worse */
+    const sLv = Object.keys(sv.levels).find(n => sv.levels[n].tier === 'S' && sv.levels[n].ghost), cLv = Object.keys(sv.levels).find(n => sv.levels[n].tier === 'C' && n % 10 !== 0);
+    P.recordRun(+sLv, { time: 99, stars: 0, starsTotal: 20, rating: 1, tier: 'B', hits: 0, airTime: 0, clean: false });
+    P.recordRun(+cLv, { time: 30, stars: 1, starsTotal: 20, rating: 1, tier: 'A', hits: 0, airTime: 0, clean: false });
+    const ls1 = pr.levels[sLv], lc = pr.levels[cLv];
+    check('TIER_RANK: a worse v14 run keeps the 13.29 S, best, rating, time and ghost', ls1.tier === 'S' && ls1.best === sv.levels[sLv].best && ls1.rating === sv.levels[sLv].rating && ls1.bestTime === sv.levels[sLv].bestTime && same(ls1.ghost, sv.levels[sLv].ghost) && ls1.t13 === 99, JSON.stringify(ls1));
+    check('TIER_RANK: a better v14 tier replaces the 13.29 C', lc.tier === 'A' && lc.best === sv.levels[cLv].best && lc.bestTime === sv.levels[cLv].bestTime, JSON.stringify(lc));
+
+    /* the three 13.29 code formats */
+    const d = P.unpackCompact(f13.played.compact.slice(7));
+    check('13.29 VROOM1 code: wallet, current, damage, mud, quiet, owned and badges decode', !!d && d.wallet === sv.wallet && d.current === sv.current && d.damage === sv.damage && d.muddy === sv.muddy && d.quiet === sv.quiet
+      && ['body', 'wheels', 'color', 'extras', 'decal', 'buddy'].every(k => sameSet(d.owned[k], sv.owned[k])) && sameSet(d.badges, sv.badges.filter(x => V.save.ids.BADGE_IDS.includes(x))));
+    check('13.29 VROOM1 code: build, upgrades, fuel, tread and number decode', d.build.body === b.body && d.build.wheels === b.wheels && d.build.color === b.color && d.build.decal === b.decal && d.build.buddy === b.buddy && d.build.number === b.number
+      && Object.keys(b.extras).every(k => !!d.build.extras[k] === b.extras[k]) && same(d.upgrades, sv.upgrades) && d.fuel === Math.ceil(sv.fuel) && d.tread === Math.ceil(sv.tread) && same(d.bosses || [], []));
+    check('13.29 VROOM1 code: every level rating and tier decodes', Object.keys(sv.levels).every(n => d.levels[n] && d.levels[n].rating === sv.levels[n].rating && d.levels[n].tier === sv.levels[n].tier) && Object.keys(d.levels).length === 96);
+    const exported = { ...sv, levels: Object.fromEntries(Object.entries(sv.levels).map(([n, { ghost, ...lv }]) => (void ghost, [n, lv]))) };
+    for (const [fmt, code] of [['VROOM2 (gzip)', f13.played.full], ['VROOM3 (plain)', f13.played.plain]]) {
+      const full = await P.decodeSaveCode(code);
+      check(`13.29 ${fmt} code decodes whole: wallet, owned, levels, photos, badges, upgrades and the avatar`, !!full && full.wallet === sv.wallet && same(full.owned, sv.owned) && same(full.levels, exported.levels)
+        && same(full.photos, sv.photos) && same(full.badges, sv.badges) && same(full.upgrades, sv.upgrades) && full.avatar === 'penguin' && full.freeDay === undefined && full.albumSeen === undefined);
+      const wrapped = await P.checkCode('here is my car! ' + code + ' :)');
+      check(`13.29 ${fmt} code still decodes pasted inside a message`, !!wrapped && wrapped.wallet === sv.wallet);
+    }
+    const sec = await P.decodeSaveCode(f13.second.full);
+    check('13.29 second kid\'s full code decodes', !!sec && sec.wallet === 88 && sec.avatar === 'monkey');
+
+    /* importing a 13.29 full code into a slot: its avatar comes along unless another slot wears it */
+    const { S: I, mem: im } = boot(ls);
+    I.importData(await I.checkCode(f13.played.full));
+    const { S: I2 } = boot(Object.fromEntries(im));
+    check('importing a 13.29 full code lands the save and its avatar in the active slot', I2.meta.active === 2 && same(I2.meta.avatars, [null, 'kitty', 'penguin']) && I2.progress.wallet === sv.wallet
+      && same(I2.progress.levels, exported.levels) && same(I2.progress.photos, sv.photos) && !('avatar' in JSON.parse(im.get('vroom.v2.p2'))));
+    const { S: J, mem: jm } = boot(ls);
+    J.importData({ ...(await J.checkCode(f13.second.full)), avatar: 'kitty' });
+    check('an imported avatar another slot already wears is not taken', same(JSON.parse(jm.get('vroom.meta')).avatars, [null, 'kitty', 'monkey']));
+    const rc = P.unpackCompact(P.packCompact().slice(7));
+    check('a v14 code of the loaded 13.29 save round-trips', rc.wallet === pr.wallet && rc.build.body === st.body && same(rc.upgrades, pr.upgrades) && ['body', 'wheels', 'color', 'extras', 'decal', 'buddy'].every(k => sameSet(rc.owned[k], pr.owned[k])));
   }
 
   const { S: F, mem } = boot();
