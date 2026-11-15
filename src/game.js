@@ -116,7 +116,8 @@ const race = {
     Object.assign(this, { n, spec, track, st, world, car, mons, camera, acc: 0, inputs: [], doneT: 0, hitStop: 0, shake: 0, maxAir: 0, maxDrift: 0,
       bot: params.get('bot') === '1', key: buildKey(), ghost: null,
       prev: { x: 0, y: 0, z: 0, q: new THREE.Quaternion() }, prevA: st.actors.map(a => [a.x, a.y, a.z, a.yaw]),
-      cam: { fwd: V3(), up: new THREE.Vector3(0, 1, 0), pos: V3(), look: V3(), fov: 62 }, tmpQ: new THREE.Quaternion(), frame: {} });
+      cam: { fwd: V3(), up: new THREE.Vector3(0, 1, 0), pos: V3(), look: V3(), fov: 62, want: V3(), tmp: V3(), upW: V3(), target: V3(), bias: 0 },
+      lastInput: null, tmpQ: new THREE.Quaternion(), frame: {} });
     this.savePrev();
     this.ghost = this.makeGhost(P);
     this.view = { scene: world.scene, camera };
@@ -138,7 +139,8 @@ const race = {
   savePrev() {
     const c = this.st.car, p = this.prev;
     p.x = c.x; p.y = c.y; p.z = c.z; p.q.set(c.qx, c.qy, c.qz, c.qw);
-    this.st.actors.forEach((a, i) => { const q = this.prevA[i] || (this.prevA[i] = [0, 0, 0, 0]); q[0] = a.x; q[1] = a.y; q[2] = a.z; q[3] = a.yaw; });
+    const A = this.st.actors;
+    for (let i = 0; i < A.length; i++) { const a = A[i], q = this.prevA[i] || (this.prevA[i] = [0, 0, 0, 0]); q[0] = a.x; q[1] = a.y; q[2] = a.z; q[3] = a.yaw; }
     const g = this.ghost;
     if (g) { const gc = g.st.car; g.prev.x = gc.x; g.prev.y = gc.y; g.prev.z = gc.z; g.prev.q.set(gc.qx, gc.qy, gc.qz, gc.qw); }
   },
@@ -149,6 +151,7 @@ const race = {
     while (this.acc >= C.SIM_DT) {
       this.savePrev();
       const input = this.bot ? S.autopilot(st, 1) : VROOM.ui.controls.read();
+      this.lastInput = input;
       if (!st.finished) this.inputs.push(S.packInput(input));
       S.step(st, input);
       const g = this.ghost;
@@ -161,9 +164,9 @@ const race = {
     this.car.group.position.set(p.x + (c.x - p.x) * k, p.y + (c.y - p.y) * k, p.z + (c.z - p.z) * k);
     this.car.group.quaternion.copy(p.q).slerp(this.tmpQ.set(c.qx, c.qy, c.qz, c.qw), k);
     this.car.update(c, dt, t);
-    st.actors.forEach((a, i) => {
-      const r = this.mons[i], q = this.prevA[i];
-      if (!r) return;
+    for (let i = 0; i < st.actors.length; i++) {
+      const a = st.actors[i], r = this.mons[i], q = this.prevA[i];
+      if (!r) continue;
       if (q) {
         let dy = a.yaw - q[3];
         dy -= Math.round(dy / (2 * Math.PI)) * 2 * Math.PI;
@@ -171,11 +174,12 @@ const race = {
         r.group.rotation.y = q[3] + dy * k;
       } else { r.group.position.set(a.x, a.y, a.z); r.group.rotation.y = a.yaw; }
       r.update(a, dt, t);
-    });
+    }
     this.drawGhost(k, dt, t);
     this.world.update(st, dt, t, this.camera);
     VROOM.ui.hud.update(st);
-    const inp = this.bot ? null : VROOM.ui.controls.read();
+    /* the last stepped input: controls.read() advances the key steer ramp, so it is read once per tick only */
+    const inp = this.bot ? null : this.lastInput;
     VROOM.audio.engine.update({ rpm: c.rpm, load: inp ? inp.throttle : 1, speed: c.speed, boost: c.boosting, air: c.air, surf: c.surf });
     this.placeCamera(dt, false);
     if (st.finished && (this.doneT += dt) > 1.2) this.finish();
@@ -212,21 +216,37 @@ const race = {
     const c = this.st.car, cam = this.camera, K = this.cam, pos = this.car.group.position;
     const f = VROOM.sim.frameAt(this.track, clamp(c.s, 0, this.track.length), this.frame);
     const sp = Math.sqrt(c.vx * c.vx + c.vy * c.vy + c.vz * c.vz);
-    const want = V3();
+    const want = K.want, up = K.upW;
     if (sp > 4 && !c.air) want.set(c.vx / sp, c.vy / sp, c.vz / sp);
     else if (sp > 4) want.set(c.vx, c.vy * 0.3, c.vz).normalize();
     else want.set(0, 0, 1).applyQuaternion(this.car.group.quaternion);
-    want.lerp(V3().set(f.tx, f.ty, f.tz), c.air ? 0.4 : 0.25).normalize();
-    const up = V3().set(f.ux, f.uy, f.uz);
-    if (c.air || c.respawnT > 0) up.lerp(V3().set(0, 1, 0), 0.5).normalize();
+    want.lerp(K.tmp.set(f.tx, f.ty, f.tz), c.air ? 0.4 : 0.25).normalize();
+    up.set(f.ux, f.uy, f.uz);
+    if (c.air || c.respawnT > 0) up.lerp(K.tmp.set(0, 1, 0), 0.5).normalize();
     const kf = snap ? 1 : 1 - Math.exp(-dt * 4.5), ku = snap ? 1 : 1 - Math.exp(-dt * 3);
     K.fwd.lerp(want, kf).normalize(); K.up.lerp(up, ku).normalize();
     /* sized to the machine: a 8x8 carrier sits as far up the screen as a dragster, clear of the gauge */
     const sz = this.car.size || { l: 4.5, h: 2.4 };
     const dist = 2.6 + sz.l * 1.05 + Math.min(4, sp * 0.06) + (c.boosting ? 1.2 : 0), height = 1.6 + sz.h * 0.85 + Math.min(1.2, sp * 0.015);
-    const target = V3().copy(pos).addScaledVector(K.fwd, -dist).addScaledVector(K.up, height);
+    const target = K.target.copy(pos).addScaledVector(K.fwd, -dist).addScaledVector(K.up, height);
     if (snap || K.pos.distanceTo(target) > 40) K.pos.copy(target); else K.pos.lerp(target, 1 - Math.exp(-dt * 10));
     K.look.copy(pos).addScaledVector(K.up, 0.5 + sz.h * 0.15).addScaledVector(K.fwd, 3);
+    /* a boss close by pulls the look toward it (up to a quarter of the way) so the chase reads on screen */
+    let bossW = 0, bi = -1, bd = 1e9;
+    const A = this.st.actors;
+    for (let i = 0; i < A.length; i++) {
+      const a = A[i], r = this.mons[i];
+      if (!a.boss || !a.alive || !r || !r.group.visible) continue;
+      const d = r.group.position.distanceTo(pos);
+      if (d < bd) { bd = d; bi = i; }
+    }
+    if (bi >= 0 && bd < 32) bossW = bd < 25 ? 1 : (32 - bd) / 7;
+    K.bias += (bossW - K.bias) * (snap ? 1 : 1 - Math.exp(-dt * 2.5));
+    if (bi >= 0 && K.bias > 0.01) {
+      const bp = this.mons[bi].group.position;
+      K.tmp.copy(bp).addScaledVector(K.up, 2.5);
+      K.look.lerp(K.tmp, 0.22 * K.bias);
+    }
     cam.position.copy(K.pos);
     if (this.shake > 0 && !reducedMotion) {
       const a = this.shake * this.shake * 0.35, t = performance.now() * 0.05;
@@ -235,7 +255,8 @@ const race = {
     }
     cam.up.copy(K.up);
     cam.lookAt(K.look);
-    const fov = 62 + Math.min(10, sp * 0.12) + (c.boosting ? 6 : 0);
+    /* the speed widening and the boost punch are decorative zoom: held at 62 for reduced motion */
+    const fov = reducedMotion ? 62 : 62 + Math.min(10, sp * 0.12) + (c.boosting ? 6 : 0) + 5 * K.bias;
     K.fov += (fov - K.fov) * (snap ? 1 : 1 - Math.exp(-dt * 3));
     if (Math.abs(cam.fov - K.fov) > 0.05) { cam.fov = K.fov; cam.updateProjectionMatrix(); }
   },

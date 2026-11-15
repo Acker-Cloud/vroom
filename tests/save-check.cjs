@@ -111,6 +111,40 @@ const sameSet = (a, b) => same([...(a || [])].sort(), [...(b || [])].sort());
     check('a full localStorage drops the longest replay, never the progress', !!j && j.levels[1].t13 === 40 && !j.levels[1].replay && !!j.levels[2].replay && j.current === 3);
     cap = 1e9;
   }
+  /* three profiles share one origin quota: another profile's replays are shed so this one's stars land */
+  {
+    let QUOTA = Infinity;
+    const mem = new Map();
+    const used = () => [...mem].reduce((a, [k, v]) => a + k.length + v.length, 0);
+    globalThis.localStorage = {
+      getItem: k => (mem.has(k) ? mem.get(k) : null),
+      setItem: (k, v) => { v = String(v); const old = mem.has(k) ? k.length + mem.get(k).length : 0; if (used() - old + k.length + v.length > QUOTA) throw new Error('QuotaExceededError'); mem.set(k, v); },
+      removeItem: k => mem.delete(k),
+    };
+    const reload = globalThis.location;
+    globalThis.location = { reload() {} };
+    const bootQ = () => {
+      const VROOM = { scenes: {} };
+      new Function('VROOM', simSource() + `\n(function (VROOM) { 'use strict';\n${fs.readFileSync(path.join(ROOT, 'src/save.js'), 'utf8')}\n})(VROOM);`)(VROOM);
+      VROOM.save.load();
+      return VROOM.save;
+    };
+    const res = { time: 40, stars: 2, starsTotal: 5, rating: 1, tier: 'C', hits: 0, airTime: 0, clean: true };
+    let Q = bootQ();
+    for (let n = 1; n <= 40; n++) Q.recordRun(n, res, { t: 40, ticks: 2, rle: 'z'.repeat(9000) + ',', b: 'k' });
+    QUOTA = used() + 3000;   /* profile 0's replays fill the origin to within 3 kB */
+    Q.switchProfile(1); Q = bootQ();
+    for (let n = 1; n <= 40; n++) Q.recordRun(n, res, null);
+    Q.switchProfile(2); Q = bootQ();
+    for (let n = 1; n <= 30; n++) Q.recordRun(n, { ...res, time: 41.123456 + n / 7 }, null);
+    Q.progress.wallet = 500; Q.save();
+    const p0 = JSON.parse(mem.get('vroom.v2.p0') || 'null'), p1 = JSON.parse(mem.get('vroom.v2.p1') || 'null'), p2 = JSON.parse(mem.get('vroom.v2.p2') || 'null');
+    check('3 profiles on one shared quota: every profile keeps all its levels, replays are shed instead',
+      !!p0 && !!p1 && !!p2 && Object.keys(p0.levels).length === 40 && Object.keys(p1.levels).length === 40 && Object.keys(p2.levels).length === 30
+      && p2.current === 31 && p2.wallet === 500 && Object.values(p0.levels).some(l => !l.replay),
+      p2 ? Object.keys(p2.levels).length + ' levels, current ' + p2.current : 'no p2');
+    globalThis.location = reload;
+  }
   /* profiles: three players on their own keys */
   {
     const { S: A, mem: m } = boot();

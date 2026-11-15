@@ -105,9 +105,13 @@ function merge(T, items, seed, jitter) {
   out.computeBoundingSphere();
   return out;
 }
+/* race-distance read: roadside creatures and bosses are drawn bigger than their sim radius so they read
+   as threats from the chase cam (debris stays true to size, its rings are the telegraph) */
+const ARCHE_SCALE = { boss: 1.5, debris: 1 };
 function realize(T, kind, B) {
   const seed = [...kind].reduce((h, ch) => Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0, 2166136261);
-  const k = B.flags.scale || 1, sc = g => { if (g && k !== 1) { g.scale(k, k, k); g.computeBoundingSphere(); } return g; };
+  const KD = VROOM.monsterAI.KINDS[kind], ak = KD ? (ARCHE_SCALE[KD.arche] || 1.4) : 1;
+  const k = (B.flags.scale || 1) * ak, sc = g => { if (g && k !== 1) { g.scale(k, k, k); g.computeBoundingSphere(); } return g; };
   const parts = B.parts.map((p, i) => ({ name: p.name, parent: p.parent, pos: p.pos.map(v => v * k), solid: sc(merge(T, p.solid, seed + i, true)), glow: sc(merge(T, p.glow, seed + i, false)) }));
   const chain = B.chain ? { ...B.chain, sp: B.chain.sp * k, at: B.chain.at.map(v => v * k), solidG: sc(merge(T, B.chain.solid, seed + 99, true)), glowG: sc(merge(T, B.chain.glow, seed + 98, false)) } : null;
   return { parts, chain, flags: B.flags };
@@ -898,7 +902,7 @@ function build(ctx, kind) {
     m.renderOrder = 2; m.visible = false; group.add(m);
     return (ov[name] = m);
   }
-  const hot = new T.Color(0xff5a1a), hazard = new T.Color(0xf2b705);
+  const hot = new T.Color(0xff5a1a), hazard = new T.Color(0xf2b705), flashC = new T.Color(accent(K.world || 1)[1]);
 
   /* smoothed pose channels */
   const P = { rise: 0, crouch: 0, lean: 0, jaw: 0, arms: 0, glow: 1, wing: 0.3, wrate: 3, run: 0, trem: 0, tilt: 0, tuck: 0, cyc: 0, roll: 0, flash: 0, dust: -1, wob: 0, spin: 0, ev: '', evT: 9 };
@@ -990,7 +994,7 @@ function build(ctx, kind) {
     const speed = Math.abs(a.vs || 0) + Math.abs(a.vd || 0);
     switch (st) {
       case 'idle': glow = K.arche === 'lurker' ? 0.7 : 0.95; wing = 0.35; wrate = 2.2; break;
-      case 'tell': crouch = 0.16; lean = -0.18; jaw = 0.6; glow = 2.0 + 0.8 * Math.sin(t * 22); trem = 1; arms = -0.7; wing = 0.55; wrate = 6; run = isBoss ? 0.6 : 0; break;
+      case 'tell': crouch = 0.16; lean = -0.18; jaw = 0.6; glow = 3.4 + 1.2 * Math.sin(t * 22); trem = 1; arms = -0.7; wing = 0.55; wrate = 6; run = isBoss ? 0.6 : 0; break;
       case 'lunge': lean = 0.35; jaw = 0.95; glow = 2.2; run = 1; arms = 1; wing = 0.9; wrate = 11; break;
       case 'attack': lean = 0.3; jaw = 0.9; glow = 2.4; run = 0.8; arms = u < 0.25 ? -1.2 : 1.1; wing = 0.9; wrate = 9; break;
       case 'recover': jaw = 0.15; lean = -0.05; glow = 0.9; run = 0.4; wing = 0.4; wrate = 4; break;
@@ -1070,7 +1074,9 @@ function build(ctx, kind) {
     if (chain) poseChain(a, dt, t);
 
     glowMat.color.setScalar(Math.max(0.15, P.glow));
-    solidMat.emissive.setRGB(P.flash * 0.9, P.flash * 0.75, P.flash * 0.6);
+    /* a hit flashes in the world accent, capped so the rust and paint still read through it */
+    const fl = Math.min(0.45, P.flash * 0.45);
+    solidMat.emissive.setRGB(flashC.r * fl, flashC.g * fl, flashC.b * fl);
 
     /* telegraphs */
     const showMark = a.mark && st !== 'gone' && !a.defeated;
@@ -1090,6 +1096,15 @@ function build(ctx, kind) {
         m.material.opacity = 0.25 + 0.4 * pulse; m.material.color.copy(urg > 0.7 ? hot : hazard);
         if (ov.ring) ov.ring.visible = false;
       }
+    } else if (st === 'tell' && !isDebris && !a.defeated) {
+      /* every tell telegraphs on the road: a pulsing hazard ring under the creature itself */
+      const L = toLocal(group.position.x, a.gy === undefined ? group.position.y : a.gy, group.position.z), urg = a.tellT ? Math.min(1, u / Math.max(0.2, a.tellT)) : 0.5;
+      const pulse = 0.55 + 0.45 * Math.sin(t * (10 + urg * 22));
+      const m = overlay('ring', hazard.getHex(), 0.9, true);
+      m.visible = true; m.position.set(L[0], L[1] + 0.06, L[2]);
+      const R = (K.r * 1.4 + 0.8) * (1.5 - 0.4 * urg);
+      m.scale.set(R, 1, R); m.material.opacity = 0.4 + 0.5 * pulse; m.material.color.copy(urg > 0.7 ? hot : hazard);
+      if (ov.stripe) ov.stripe.visible = false;
     } else { if (ov.ring) ov.ring.visible = false; if (ov.stripe) ov.stripe.visible = false; }
     /* a flyer's shadow: on the road under it, or on the marked dive spot during a diver's tell */
     if (flyer || (isDebris && K.mode === 'fall') || (isBoss && (a.h || 0) > 1.5)) {

@@ -106,7 +106,7 @@ npm ci                                   # three, eslint, playwright-core, jsqr 
 npx playwright-core install chromium     # or: export CHROMIUM=/path/to/chrome
 npm run build                            # src/ -> index.html
 python3 -m http.server 4173              # then open http://localhost:4173/ (append ?garage, ?level=N, ?world=N)
-npm test                                 # 15 suites, 352 checks
+npm test                                 # 15 suites, 363 checks
 node tests/lint.cjs                      # 0 findings
 node scripts/doc-shots.cjs               # regenerate the screenshots in docs/
 ```

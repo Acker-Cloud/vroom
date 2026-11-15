@@ -247,9 +247,21 @@ const keys = new Set();
 const touch = { gas: 0, brake: 0, boost: 0, drift: 0, steer: 0, btn: 0 };
 let kSteer = 0, tiltZero = null, tiltRaw = 0, padPausePrev = false;
 const KEYMAP = { arrowleft: 1, arrowright: 1, arrowup: 1, arrowdown: 1, ' ': 1 };
+/* the touch plates fade back once a keyboard or a gamepad drives, so they never hide the right roadside;
+   the next touch brings them back */
+const DRIVE_KEYS = new Set(['arrowleft', 'arrowright', 'arrowup', 'arrowdown', ' ', 'a', 'd', 'w', 's', 'shift', 'x']);
+let ctlDim = false;
+function dimControls(on) {
+  if (ctlDim === on) return;
+  ctlDim = on;
+  const c = document.getElementById('ctl');
+  if (c) c.classList.toggle('dim', on);
+}
+addEventListener('pointerdown', () => dimControls(false), true);
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   keys.add(k);
+  if (DRIVE_KEYS.has(k) && game && game.current() === 'race') dimControls(true);
   if (KEYMAP[k] && game && game.current() === 'race') e.preventDefault();
   if ((k === 'escape' || k === 'p') && game && game.current() === 'race' && !e.repeat) togglePause();
 });
@@ -272,6 +284,7 @@ function readPad() {
     const start = b(9) > 0.5;
     if (start && !padPausePrev && game && game.current() === 'race') setTimeout(togglePause, 0);
     padPausePrev = start;
+    if (!ctlDim && (Math.abs(ax) > 0.3 || b(7) > 0.2 || b(6) > 0.2 || b(0) > 0.5 || b(1) > 0.5)) dimControls(true);
     return { steer: Math.abs(ax) < 0.12 ? 0 : ax, throttle: Math.max(b(7), (g.axes[1] || 0) < -0.5 ? 1 : 0), brake: b(6), boost: b(0) > 0.5 || b(5) > 0.5 ? 1 : 0, drift: b(1) > 0.5 || b(2) > 0.5 || b(4) > 0.5 ? 1 : 0 };
   }
   return null;
@@ -302,6 +315,7 @@ const controls = {
     if (!hud) return;
     const old = $('ctl'); if (old) old.remove();
     const box = el('div', '', '', ''); box.id = 'ctl';
+    if (ctlDim) box.classList.add('dim');
     const hold = (b, key) => {
       b.classList.add('pedal');
       b.addEventListener('pointerdown', e => { touch[key] = 1; b.classList.add('held'); try { b.setPointerCapture(e.pointerId); } catch (er) {} });
@@ -449,7 +463,7 @@ const hud = {
       if (L.kmh !== kmh) {
         E.kmh.textContent = kmh; L.kmh = kmh;
         const a = GAUGE.a0 + (GAUGE.a1 - GAUGE.a0) * Math.min(1, kmh / GAUGE.max);
-        E.needle.setAttribute('transform', 'rotate(' + a.toFixed(1) + ' 105 112)');
+        E.needle.style.transform = 'rotate(' + a.toFixed(1) + 'deg)';   /* pivot: the CSS transform-origin only */
       }
       const rpm = Math.round(clamp(car.rpm || 0, 0, 1) * 100);
       if (L.rpm !== rpm) { E.rpm.setAttribute('stroke-dasharray', rpm + ' 100'); L.rpm = rpm; }

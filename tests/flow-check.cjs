@@ -99,7 +99,18 @@ const stepRace = (page, maxCalls = 4000) => page.evaluate(m => {
   await page.waitForFunction(() => VROOM.game.current() === 'home', null, { timeout: 15000 }).catch(() => {});
   check('splash hands over to home', (await page.evaluate(() => VROOM.game.current())) === 'home');
   const idle = () => page.waitForFunction(() => { const s = document.getElementById('shutter'); return !s || s.className === ''; }, null, { timeout: 10000 }).catch(() => {});
-  const press = async sel => (await idle(), page.evaluate(s => { const b = document.querySelector(s); if (!b) return false; b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 })); return true; }, sel));
+  /* a press waits for the shutter and the home plates' finite entrance animations; on a loaded box a press
+     that started nothing (no shutter, no scene change) is sent once more */
+  const settle = () => page.waitForFunction(() => document.getAnimations().every(a => a.playState !== 'running' || !a.effect || a.effect.getTiming().iterations === Infinity), null, { timeout: 5000 }).catch(() => {});
+  const dispatch = sel => page.evaluate(s => { const b = document.querySelector(s); if (!b) return false; b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 })); return true; }, sel);
+  const press = async sel => {
+    await idle(); await settle();
+    const from = await page.evaluate(() => VROOM.game.current());
+    let ok = await dispatch(sel);
+    const moved = () => page.waitForFunction(f => VROOM.game.current() !== f || (document.getElementById('shutter') || {}).className, from, { timeout: 3000 }).then(() => true, () => false);
+    if (ok && !(await moved())) { await idle(); ok = await dispatch(sel); }
+    return ok;
+  };
   const waitScene = id => page.waitForFunction(i => VROOM.game.current() === i, id, { timeout: 15000 }).then(() => true, () => false);
   const plate = aria => `#homeHud button[aria-label="${aria}"]`;
   await press(plate('garage'));

@@ -65,20 +65,21 @@ function scratches(g, w, h, r, n, col, a) {
   }
   g.globalAlpha = 1;
 }
-/* grime: a near-white multiply map. Dirt pools at the bottom of every face (v = 0 is the bottom of a box side). */
+/* grime: a near-white multiply map. Dirt pools at the bottom of every face (v = 0 is the bottom of a box side).
+   Pushed hard so the wear still reads at chase-cam distance: heavy road dirt, rust blooms and long rust runs. */
 function grimeDraw(g, w, h, r) {
-  g.fillStyle = '#f4f2ee'; g.fillRect(0, 0, w, h);
-  speckle(g, w, h, r, 900, '#6a6258', 0.05, 0.22, 1, 3);
-  for (let i = 0; i < 14; i++) blot(g, r() * w, r() * h, 6 + r() * 22, '#8a3b12', 0.18 + r() * 0.2);
+  g.fillStyle = '#f0ede8'; g.fillRect(0, 0, w, h);
+  speckle(g, w, h, r, 1400, '#5a5248', 0.1, 0.42, 1, 3.5);
+  for (let i = 0; i < 18; i++) blot(g, r() * w, r() * h, 8 + r() * 26, '#7a3010', 0.35 + r() * 0.3);
   for (let i = 0; i < 10; i++) blot(g, r() * w, r() * h, 3 + r() * 6, '#c7ccd5', 0.5);
-  scratches(g, w, h, r, 60, '#ffffff', 0.6); scratches(g, w, h, r, 40, '#3a342c', 0.35);
-  const gr = g.createLinearGradient(0, h, 0, h * 0.72);
-  gr.addColorStop(0, 'rgba(70,58,44,0.55)'); gr.addColorStop(1, 'rgba(70,58,44,0)');
-  g.fillStyle = gr; g.fillRect(0, h * 0.72, w, h * 0.28);
-  for (let i = 0; i < 18; i++) {   /* rust runs from the top edge */
-    const x = r() * w, l = 10 + r() * 50;
-    const s = g.createLinearGradient(0, 0, 0, l); s.addColorStop(0, 'rgba(138,59,18,0.35)'); s.addColorStop(1, 'rgba(138,59,18,0)');
-    g.fillStyle = s; g.fillRect(x, 0, 2 + r() * 3, l);
+  scratches(g, w, h, r, 80, '#ffffff', 0.7); scratches(g, w, h, r, 60, '#2a241c', 0.55);
+  const gr = g.createLinearGradient(0, h, 0, h * 0.55);
+  gr.addColorStop(0, 'rgba(56,44,32,0.85)'); gr.addColorStop(1, 'rgba(56,44,32,0)');
+  g.fillStyle = gr; g.fillRect(0, h * 0.55, w, h * 0.45);
+  for (let i = 0; i < 26; i++) {   /* rust runs from the top edge */
+    const x = r() * w, l = 24 + r() * 90;
+    const s = g.createLinearGradient(0, 0, 0, l); s.addColorStop(0, 'rgba(130,52,14,0.75)'); s.addColorStop(1, 'rgba(130,52,14,0)');
+    g.fillStyle = s; g.fillRect(x, 0, 3 + r() * 5, l);
   }
 }
 const grimeTex = ctx => texture(ctx, 'grime', 256, 256, grimeDraw);

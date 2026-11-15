@@ -3,24 +3,24 @@
 `npm test` (tests/run-all.cjs) builds `preview/test.html` from `src/`, serves the repo root on a free
 port and runs `sim.cjs` plus every `*-check.cjs` here, found by name. A suite prints `PASS` / `FAIL`
 lines and an `N/M passed` trailer (use `tests/lib.cjs`), and exits non-zero on any failure.
-15 suites, 352 checks.
+15 suites, 363 checks.
 
 | Suite | Owner | Runs in | Checks | Guards |
 |---|---|---|---|---|
 | `sim.cjs` | integrator | Node | 6 | sim region purity, every level 1..121 builds and the autopilot finishes it, determinism, input packing |
 | `boot-check.cjs` | integrator | Chromium | 20 | boot, three r170 inlined, no foreign requests, contract API, iPad shell metas, splash then home, no words and 64 px targets on home / garage / map / race, portrait asks to rotate |
-| `save-check.cjs` | integrator | Node | 62 | v12 saves and codes (`fixtures/v12-saves.json`) load with every star, unlock and part; codes round-trip; stars only go up; damage, repair, upgrade ladders, finale and boss bonuses, v13 badges, the parade jackpot; a full localStorage sheds replays not progress; three profiles; the save QR scans with jsQR |
+| `save-check.cjs` | integrator | Node | 63 | v12 saves and codes (`fixtures/v12-saves.json`) load with every star, unlock and part; codes round-trip; stars only go up; damage, repair, upgrade ladders, finale and boss bonuses, v13 badges, the parade jackpot; a full localStorage sheds replays not progress, across all three profiles sharing one quota; three profiles; the save QR scans with jsQR |
 | `flow-check.cjs` | integrator | Node + Chromium | 30 | deep links; splash -> home -> garage -> map -> race -> results through the real plates; countdown and pause hold the sim; a race banks time, replay and payout; the ghost replays the best run bit-exact; a fall is caught by the crane; results and pause have no words; reduced motion keeps the camera still; a v12 save and a v12 code keep their stars and unlocks in the page |
 | `update-check.cjs` | integrator | Chromium | 10 | the new-version gate keyed on APP_VERSION: hidden when equal, shown on home when the server differs, never mid-race or in the garage, quick tap ignored, held press reloads with a cache-busting URL |
 | `build-check.cjs` | integrator | Node | 3 | `index.html` is fresh, versions agree, no em or en dashes |
-| `physics-check.cjs` | physics | Node | 31 | the tuning targets in docs/OVERHAUL.md section 5: top speeds, 0 to 30, braking, grip per surface, airtime, landings, wall glances, monster knocks, drift, tricks, every piece type, the crane, determinism |
+| `physics-check.cjs` | physics | Node | 38 | the tuning targets in docs/OVERHAUL.md section 5: top speeds, 0 to 30, braking, grip per surface, airtime, landings, wall glances, monster knocks, drift (a power slide that keeps its speed and gear), tricks, every piece type, the crane (never for a deliberate stop or reverse), determinism |
 | `sim-check.cjs` | physics | Node | 10 | sane frames on all 121 tracks; skill 1 and 0.4 bots finish every level with no NaN and stay on the road; every car class finishes; determinism |
 | `levels-check.cjs` | worlds | Node | 16 | world roster against the monster kinds, spec shape, determinism, escalation, placement rules, par range |
 | `fairness-check.cjs` | worlds | Node | 3 | every level is fair: the skill-0.4 autopilot finishes under 2x par B with at most 3 respawns, skill 1 reaches par A |
 | `worlds-check.cjs` | worlds | Chromium | 13 | every world renders within budget from 5 cameras, events, dispose leaks, backdrops, cards, FX, reduced motion |
 | `cars-check.cjs` | cars | Node + Chromium | 37 | catalog (legacy ids, free stays free, paid stays paid, append-only lists), class feel, every body and part builds within budget, suspension, damage, thumbnails, the garage shop flow with no words and 64 px targets, reduced motion |
 | `monsters-check.cjs` | monsters | Node + Chromium | 35 | 24 creatures and 12 bosses: purity, telegraphed hits, knock limits, avoidability, stun cap, boss rules, determinism, rigs within budget, reduced motion |
-| `ui-check.cjs` | ui | Chromium | 63 | tokens, logo, splash, home, map, race HUD, countdown, keyboard, touch and drag steering, pause, results tally, overlays (settings, profiles with QR, album), no words and 64 px targets on 9 screens, reduced motion |
+| `ui-check.cjs` | ui | Chromium | 66 | tokens, logo, splash, home, map, race HUD (gauge clear of the near road, needle on its pivot), countdown, keyboard, touch and drag steering, touch plates fade under keyboard, pause, results tally, overlays (settings, profiles with QR, album), no words and 64 px targets on 9 screens, reduced motion |
 | `audio-check.cjs` | ui | Chromium | 13 | gesture unlock, every SFX name audible, all 17 songs, every engine class, 12 ambiences, quiet mode |
 
 `node tests/lint.cjs [--owner <owner>]` runs ESLint over the assembled modules (0 findings to ship).

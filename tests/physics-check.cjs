@@ -183,6 +183,23 @@ const KICKER = [{ type: 'straight', len: 200, surf: 'asphalt' }, { type: 'ramp',
   check('a held drift through a bend (steered on the line) banks boost on exit', drifting && banked && banked.bonus > 0 && !spun, banked ? `t ${banked.t.toFixed(2)} s, +${banked.bonus.toFixed(2)}` : 'no driftBank');
   check('a drift carries its speed (at least 80 percent)', vmin >= 0.8 * v0, `${v0.toFixed(1)} -> min ${vmin.toFixed(1)} m/s`);
 }
+/* a power slide, not a brake: 1 s of full lock + drift + gas on an open pad (no wall in reach) */
+for (const b of ['monster', 'race', 'bulldozer']) {
+  const P = params(b), { st } = race([{ type: 'straight', len: 300, w: 60, surf: 'asphalt' }, { type: 'straight', len: 600, w: 60, surf: 'asphalt' }], P);
+  S.teleport(st, 60, 0, Math.min(30, P.top * 0.75));
+  for (let k = 0; k < HZ; k++) { S.step(st, { throttle: 1 }); st.events.length = 0; }
+  const v0 = st.car.speed, g0d = st.car.gear;
+  let vmin = 1e9, bmax = 0, gmin = 9, held = true;
+  for (let k = 0; k < HZ; k++) {
+    S.step(st, { throttle: 1, steer: 1, drift: 1 }); st.events.length = 0;
+    const c = st.car, R = st.int.R, v = Math.hypot(c.vx, c.vy, c.vz) || 1;
+    vmin = Math.min(vmin, c.speed); gmin = Math.min(gmin, c.gear); if (!c.drift) held = false;
+    bmax = Math.max(bmax, Math.acos(Math.max(-1, Math.min(1, (c.vx * R[6] + c.vy * R[7] + c.vz * R[8]) / v))) * 180 / Math.PI);
+  }
+  check(`a 1 s full-throttle drift (${b}) loses at most 10 percent speed and peaks at most 50 degrees of slip`, held && vmin >= 0.9 * v0 && bmax <= 50,
+    `${v0.toFixed(1)} -> min ${vmin.toFixed(1)} m/s, peak slip ${bmax.toFixed(0)} deg`);
+  check(`the gear readout holds through the drift (${b})`, gmin >= g0d - 1, `gear ${g0d} -> min ${gmin}`);
+}
 {
   const pieces = [{ type: 'straight', len: 300, surf: 'asphalt' }, { type: 'ramp', len: 40, rise: 9, lip: 0.6 }, { type: 'gap', len: 140, drop: 20 }, { type: 'straight', len: 400, w: 12 }];
   const P = params(BASE), { st } = race(pieces, P);
@@ -285,5 +302,20 @@ function hashRun(n, inputs) {
   const banned = [/\bMath\.(random|sin|cos|tan|asin|acos|atan|atan2|exp|expm1|pow|hypot|log|log2|log10|log1p|cbrt|sinh|cosh|tanh)\b/, /\*\*/, /\bDate\b/, /\bperformance\b/, /\bwindow\b/, /\bdocument\b/, /\bTHREE\b/, new RegExp(String.fromCharCode(0x2014))];
   const hits = banned.filter(re => re.test(src)).map(String);
   check('src/sim.js: only dmath maths, no clocks, DOM, THREE or em dashes', hits.length === 0, hits.join(' '));
+}
+/* a deliberate stop or a reverse is never a rescue: no crane, no lost clean bonus */
+{
+  const why = [];
+  for (const mode of ['idle', 'reverse']) {
+    const spec = V.levels.level(5), st = S.newRace(S.buildTrack(spec), params(BASE), { seed: spec.seed, mode: 'race' });
+    for (let k = 0; k < HZ * 20; k++) {
+      const t = st.tick / HZ;
+      S.step(st, mode === 'idle' ? {} : t < 8 ? S.autopilot(st, 1) : { brake: 1 });
+      for (const e of st.events) if (e.type === 'respawn') why.push(mode + '@' + t.toFixed(1) + ':' + st.int.why);
+      st.events.length = 0;
+    }
+    if (st.stats.respawns) why.push(mode + ' counted ' + st.stats.respawns);
+  }
+  check('sitting still or reversing never calls the crane or counts a respawn', why.length === 0, why.join(' '));
 }
 done();

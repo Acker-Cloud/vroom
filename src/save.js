@@ -184,16 +184,30 @@ function apply(saved) {
   for (const k in state.extras) if (state.extras[k] && !owns('extras', k)) state.extras[k] = false;
 }
 function snapshot() { return { ...extra, build: state, ...progress }; }
-/* localStorage holds about 5 MB per origin. Replays are the only big thing in a save, so when a write is
-   refused the longest replays go first (the ghosts are a keepsake; stars, times and parts never are). */
+/* localStorage holds about 5 MB per origin, shared by all 3 profiles. Replays are the only big thing in a
+   save, so when a write is refused the longest replay in ANY profile goes first (the ghosts are a keepsake;
+   stars, times and parts never are). Another profile's save is rewritten without that replay. */
 function save() {
   if (!store) return;
-  for (let tries = 0; tries < 200; tries++) {
+  const others = {};
+  for (let p = 0; p < MAX_PROFILES; p++) {
+    if (p === meta.active) continue;
+    try { const o = JSON.parse(lsGet('vroom.v2.p' + p)); if (o && o.levels) others[p] = o; } catch (e) {}
+  }
+  for (let tries = 0; tries < 2000; tries++) {
     try { store.setItem(saveKey(), JSON.stringify(snapshot())); return; } catch (e) { /* quota: shed a replay and retry */ }
-    let worst = null;
-    for (const n in progress.levels) { const r = progress.levels[n].replay; if (r && (!worst || r.rle.length > progress.levels[worst].replay.rle.length)) worst = n; }
+    let worst = null, len = -1;
+    const pick = (p, levels) => {
+      for (const n in levels) {
+        const r = levels[n] && levels[n].replay;
+        if (r && typeof r.rle === 'string' && r.rle.length > len) { worst = { p, levels, n }; len = r.rle.length; }
+      }
+    };
+    pick(meta.active, progress.levels);
+    for (const p in others) pick(+p, others[p].levels);
     if (!worst) return;
-    delete progress.levels[worst].replay;
+    delete worst.levels[worst.n].replay;
+    if (worst.p !== meta.active) { try { store.setItem('vroom.v2.p' + worst.p, JSON.stringify(others[worst.p])); } catch (e) {} }
   }
 }
 

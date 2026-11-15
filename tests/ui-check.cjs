@@ -84,6 +84,26 @@ async function screen(page, name) {
   await page.waitForTimeout(250);
   const hud = await page.evaluate(() => ['hPause', 'hTime', 'hStars', 'hRail', 'hGauge', 'hBoost', 'ctlGas', 'ctlBrake', 'ctlBoost', 'ctlDrift'].filter(id => !document.getElementById(id)));
   check('race HUD: pause, timer, stars, rail, gauge, boost meter, pedals', hud.length === 0, 'missing ' + hud.join(' '));
+  /* the near road under the car (a 300 x 260 stage-px box) stays clear of the gauge and the boost meter */
+  const clear = await page.evaluate(() => {
+    const st = document.getElementById('stage').getBoundingClientRect(), s = st.width / VROOM.contracts.STAGE_W;
+    const box = { l: 362, r: 662, t: 440, b: 700 };
+    return ['hGauge', 'hBoost'].filter(id => {
+      const r = document.getElementById(id).getBoundingClientRect();
+      const l = (r.left - st.left) / s, t = (r.top - st.top) / s, rr = (r.right - st.left) / s, b = (r.bottom - st.top) / s;
+      return l < box.r && rr > box.l && t < box.b && b > box.t;
+    });
+  });
+  check('the gauge and boost meter keep off the road just ahead of the car', clear.length === 0, 'overlap ' + clear.join(' '));
+  const pivot = await page.evaluate(() => {
+    const n = document.querySelector('#hGauge .needle'), g = document.getElementById('hGauge').getBoundingClientRect();
+    n.style.transition = 'none';
+    const tip = a => { n.style.transform = 'rotate(' + a + 'deg)'; const r = n.getBoundingClientRect(); return [(r.left + r.right) / 2 - g.left, (r.top + r.bottom) / 2 - g.top]; };
+    const out = [-130, 0, 130].map(tip); n.style.transition = '';
+    return out;
+  });
+  /* the needle's box centre stays inside the 210 px dial at both ends and top dead centre */
+  check('the speedo needle pivots on the dial centre (stays inside the dial)', pivot.every(([x, y]) => x > 20 && x < 190 && y > 10 && y < 200), JSON.stringify(pivot.map(p => p.map(v => Math.round(v)))));
   const cd = await page.evaluate(() => ({ counting: VROOM.ui.counting(), t: VROOM.scenes.race.st ? VROOM.scenes.race.st.t : -1 }));
   check('the countdown holds the sim at t = 0', cd.counting && cd.t === 0, JSON.stringify(cd));
   await screen(page, 'race countdown');
@@ -100,6 +120,7 @@ async function screen(page, name) {
   const kb = await page.evaluate(() => VROOM.ui.controls.read());
   await page.keyboard.up('ArrowUp'); await page.keyboard.up('ArrowLeft'); await page.keyboard.up(' '); await page.keyboard.up('Shift');
   check('keyboard: up = throttle, left = steer left (ramped to full), space = boost, shift = drift', kb.throttle === 1 && kb.steer === -1 && kb.boost === 1 && kb.drift === 1, JSON.stringify(kb));
+  const dimKb = await page.evaluate(() => document.getElementById('ctl').classList.contains('dim'));
   const kb0 = await page.evaluate(() => VROOM.ui.controls.read());
   check('keys released: a neutral InputFrame', kb0.throttle === 0 && kb0.steer === 0 && kb0.boost === 0 && kb0.drift === 0, JSON.stringify(kb0));
   const ped = await page.evaluate(() => {
@@ -111,6 +132,8 @@ async function screen(page, name) {
     return { on, off };
   });
   check('touch pedals: gas and brake held together, released to zero', ped.on.throttle === 1 && ped.on.brake === 1 && ped.off.throttle === 0 && ped.off.brake === 0, JSON.stringify(ped));
+  const dimTouch = await page.evaluate(() => document.getElementById('ctl').classList.contains('dim'));
+  check('keyboard driving fades the touch plates back; a touch brings them back', dimKb && !dimTouch, `after keys ${dimKb}, after touch ${dimTouch}`);
   const steer = await page.evaluate(() => {
     const z = document.getElementById('ctlSteer');
     if (!z) return null;

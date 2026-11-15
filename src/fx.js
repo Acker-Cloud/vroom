@@ -5,7 +5,8 @@
    skid only: id (one strip per id, a wheel index), w strip width, up [x, y, z]; emit('skid', null, { id }) ends a strip.
 
    Three pools, all allocated up front (no allocation per frame or per emit):
-     chunk  low-poly icosahedrons, lit and flat shaded: dust, smoke, debris, splash, snow (PS1 style puffs)
+     chunk  low-poly icosahedrons, lit and flat shaded: debris, splash, snow
+     puff   soft see-through spheres that swell and shrink away: dust, smoke (they read as smoke, not gravel)
      glow   octahedrons, unlit and additive: sparks (stretched along their velocity), fire, nitro, stars, shards
      skid   a ring buffer of quads with per-vertex alpha that fade out
    Capacity follows ctx.quality. Under ctx.reducedMotion every burst is halved and shortened, and the
@@ -13,7 +14,7 @@
 
 function create(ctx, scene) {
   const T = ctx.THREE, low = ctx.quality === 'low', rm = !!ctx.reducedMotion;
-  const CAP = { chunk: low ? 220 : 640, glow: low ? 260 : 900, skid: low ? 200 : 600 };
+  const CAP = { chunk: low ? 220 : 640, puff: low ? 160 : 420, glow: low ? 260 : 900, skid: low ? 200 : 600 };
   const scaleN = (low ? 0.5 : 1) * (rm ? 0.5 : 1);
 
   /* ---- particle pools ---- */
@@ -36,7 +37,9 @@ function create(ctx, scene) {
   const chunkGeo = new T.IcosahedronGeometry(1, 0), glowGeo = new T.OctahedronGeometry(1, 0);
   const chunkMat = new T.MeshStandardMaterial({ flatShading: true, roughness: 0.9, metalness: 0.05, vertexColors: false });
   const glowMat = new T.MeshBasicMaterial({ transparent: true, blending: T.AdditiveBlending, depthWrite: false, toneMapped: false });
-  const P = { chunk: pool(CAP.chunk, chunkGeo, chunkMat), glow: pool(CAP.glow, glowGeo, glowMat) };
+  const puffGeo = new T.IcosahedronGeometry(1, 1);
+  const puffMat = new T.MeshLambertMaterial({ transparent: true, opacity: 0.42, depthWrite: false });
+  const P = { chunk: pool(CAP.chunk, chunkGeo, chunkMat), puff: pool(CAP.puff, puffGeo, puffMat), glow: pool(CAP.glow, glowGeo, glowMat) };
 
   /* ---- skid marks ---- */
   const SK = CAP.skid, skPos = new Float32Array(SK * 4 * 3), skCol = new Float32Array(SK * 4 * 4), skAge = new Float32Array(SK).fill(99);
@@ -57,6 +60,8 @@ function create(ctx, scene) {
   let seed = 12345;
   const rnd = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
   const parse = (c, fallback) => { col.set(c || fallback); return col; };
+  const haze = new T.Color(0x8a8c92);
+  const greyed = (c, fallback) => parse(c, fallback).lerp(haze, 0.45);
   function spawn(Pl, x, y, z, vx, vy, vz, life, s0, s1, g, drag, c, stretch = 0, spin = 0) {
     const i = Pl.next;
     Pl.next = (Pl.next + 1) % Pl.cap;
@@ -74,12 +79,12 @@ function create(ctx, scene) {
       for (let k = 0; k < n; k++) { sphere((7 + rnd() * 10) * sp, 0.5); spawn(P.glow, x, y, z, v.x, v.y, v.z, 0.3 + rnd() * 0.4, 0.09, 0.03, 20, 1.2, k % 3 ? c : col.set('#fff2a8'), 1); parse(o.color, '#ffb02e'); }
     },
     dust(x, y, z, o) {
-      const c = parse(o.color, '#7a6a58'), n = count(o, 6), big = o.big ? 2 : 1, d = o.dir;
-      for (let k = 0; k < n; k++) { sphere(1.5 + rnd() * 2.5 * big, 0.6); spawn(P.chunk, x + (rnd() - 0.5) * big, y + 0.1, z + (rnd() - 0.5) * big, v.x + (d ? d[0] * 3 : 0), v.y * 0.5 + 0.8, v.z + (d ? d[2] * 3 : 0), 0.4 + rnd() * 0.4, 0.1 * big, (0.26 + rnd() * 0.2) * big, -0.4, 2.6, c, 0, 2); }
+      const c = greyed(o.color, '#7a6a58'), n = count(o, 6), big = o.big ? 2 : 1, d = o.dir;
+      for (let k = 0; k < n; k++) { sphere(1.5 + rnd() * 2.5 * big, 0.6); spawn(P.puff, x + (rnd() - 0.5) * big, y + 0.1, z + (rnd() - 0.5) * big, v.x + (d ? d[0] * 3 : 0), v.y * 0.5 + 0.8, v.z + (d ? d[2] * 3 : 0), 0.5 + rnd() * 0.5, 0.12 * big, (0.38 + rnd() * 0.22) * big, -0.4, 2.6, c, 0, 0.6); }
     },
     smoke(x, y, z, o) {
-      const c = parse(o.color, '#3a3a40'), n = count(o, 5);
-      for (let k = 0; k < n; k++) { sphere(1 + rnd() * 1.5, 1); spawn(P.chunk, x, y, z, v.x, 1.2 + rnd() * 1.6, v.z, 0.7 + rnd() * 0.6, 0.2, 0.9 + rnd() * 0.5, -1.0, 1.4, c, 0, 1.2); }
+      const c = greyed(o.color, '#3a3a40'), n = count(o, 5);
+      for (let k = 0; k < n; k++) { sphere(1 + rnd() * 1.5, 1); spawn(P.puff, x, y, z, v.x, 1.2 + rnd() * 1.6, v.z, 0.8 + rnd() * 0.7, 0.25, 1.3 + rnd() * 0.7, -1.0, 1.4, c, 0, 0.4); }
     },
     fire(x, y, z, o) {
       const n = count(o, 8);
@@ -115,7 +120,7 @@ function create(ctx, scene) {
       for (let k = 0; k < n; k++) { sphere(6 + rnd() * 6, 0.6); spawn(P.glow, x, y, z, v.x, v.y, v.z, 0.5 + rnd() * 0.4, 0.18, 0.05, 18, 0.5, c, 1); }
     },
     nitro(x, y, z, o) {
-      const n = count(o, 4), d = o.dir || [0, 0, -1];
+      const n = count(o, 12), d = o.dir || [0, 0, -1];
       for (let k = 0; k < n; k++) { spawn(P.glow, x + (rnd() - 0.5) * 0.4, y + (rnd() - 0.5) * 0.3, z + (rnd() - 0.5) * 0.4, d[0] * 12 + (rnd() - 0.5) * 2, d[1] * 12 + rnd(), d[2] * 12 + (rnd() - 0.5) * 2, 0.14 + rnd() * 0.1, 0.32, 0.06, 0, 2, col.set(k % 3 ? '#4ff0ff' : '#8cff3a')); }
     },
     stars(x, y, z, o) {
@@ -156,7 +161,8 @@ function create(ctx, scene) {
       const k = Math.max(0, Pl.life[i] / Pl.max[i]), dr = Math.max(0, 1 - Pl.drag[i] * dt);
       Pl.vx[i] *= dr; Pl.vz[i] *= dr; Pl.vy[i] = Pl.vy[i] * dr - Pl.grav[i] * dt;
       Pl.px[i] += Pl.vx[i] * dt; Pl.py[i] += Pl.vy[i] * dt; Pl.pz[i] += Pl.vz[i] * dt;
-      const s = Pl.life[i] <= 0 ? 0 : Pl.s1[i] + (Pl.s0[i] - Pl.s1[i]) * k;
+      let s = Pl.life[i] <= 0 ? 0 : Pl.s1[i] + (Pl.s0[i] - Pl.s1[i]) * k;
+      if (Pl === P.puff && k < 0.25) s *= k / 0.25;   /* a puff swells, then thins away instead of popping */
       v.set(Pl.px[i], Pl.py[i], Pl.pz[i]);
       if (Pl.stretch[i]) {
         dirV.set(Pl.vx[i], Pl.vy[i], Pl.vz[i]);
@@ -181,6 +187,7 @@ function create(ctx, scene) {
   function update(dt) {
     dt = Math.min(0.05, dt);
     step(P.chunk, dt, false);
+    step(P.puff, dt, false);
     step(P.glow, dt, true);
     /* skids fade over 5 s */
     let live = false;
@@ -199,7 +206,7 @@ function create(ctx, scene) {
   function dispose() {
     for (const k in P) { scene.remove(P[k].mesh); P[k].mesh.dispose(); }
     scene.remove(skMesh);
-    chunkGeo.dispose(); glowGeo.dispose(); chunkMat.dispose(); glowMat.dispose(); skGeo.dispose(); skMat.dispose();
+    chunkGeo.dispose(); glowGeo.dispose(); puffGeo.dispose(); puffMat.dispose(); chunkMat.dispose(); glowMat.dispose(); skGeo.dispose(); skMat.dispose();
   }
 
   return { emit, update, dispose };

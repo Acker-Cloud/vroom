@@ -874,8 +874,8 @@ function bookkeeping(st, inp, lost) {
   /* oil: hitting it fast with a wheel turned can spin you */
   if (I.oilN > 0 && I.onOil === 0 && !lost && I.vfwd > 16 && (Math.abs(inp.steer) > 0.35 || M.rngNext(st) < 0.3)) spinOut(st, 'oil', inp.steer >= 0 ? -1 : 1, 0.8);
   I.onOil = I.oilN;
-  /* rpm and gear for the engine voice */
-  const v = Math.max(0, I.vfwd), top = P.top * 1.05;
+  /* rpm and gear for the engine voice: road speed, not the forward share, so a held slide keeps its gear */
+  const v = I.vfwd > 0 ? c.speed : 0, top = P.top * 1.05;
   let gi = 0;
   while (gi < 4 && v > GEARS[gi + 1] * top) gi++;
   if (onGround) {
@@ -1115,13 +1115,16 @@ function rescue(st, inp) {
     }
     if (I.flipT > 3) { I.why = 'flip'; startRespawn(st, crawlS(st), true); return; }
   } else I.flipT = 0;
-  if (!noGround && c.speed < 1.2 && (inp.throttle > 0 || inp.brake > 0) && !st.finished) {
+  /* stuck and wedge rescues only watch a driver who is pushing forward (a stop or a reverse for a missed
+     star is on purpose), and they never count as respawns, so they never cost the clean bonus */
+  const pushing = inp.throttle > 0 && !(inp.brake > 0);
+  if (!noGround && c.speed < 1.2 && pushing && !st.finished) {
     I.stuckT += DT;
-    if (I.stuckT > 3) { I.why = 'stuck'; startRespawn(st, crawlS(st), true); return; }
+    if (I.stuckT > 3) { I.why = 'stuck'; startRespawn(st, crawlS(st), false); return; }
   } else I.stuckT = 0;
-  /* wedged: rocking against something without getting anywhere for 5 s */
+  /* wedged: rocking against something without getting anywhere for 5 s of throttle */
   if (c.s > I.progS + 6 || st.finished || c.speed > 5) { I.progS = c.s; I.progT = 0; }
-  else if ((I.progT += DT) > 5) { I.why = 'wedge'; startRespawn(st, crawlS(st), true); }
+  else if (pushing && (I.progT += DT) > 5) { I.why = 'wedge'; startRespawn(st, crawlS(st), false); }
 }
 /* a safe spot just ahead of the car for a stuck rescue */
 function crawlS(st) {

@@ -232,11 +232,11 @@ svg { display: block; overflow: visible; }
 #hBoss.hot .frame { animation: bossHot .35s infinite alternate; }
 @keyframes bossHot { to { box-shadow: 0 0 0 2px #6b727e, 0 0 22px var(--m-deny); } }
 #hBoss.dead { filter: grayscale(1) brightness(.7); }
-#hGauge { position: absolute; left: 495px; top: 444px; width: 210px; height: 210px; pointer-events: none; }
-#hGauge .needle { transform-origin: 105px 112px; transition: transform .08s linear; }
+#hGauge { position: absolute; left: 24px; top: 112px; width: 210px; height: 210px; pointer-events: none; }
+#hGauge .needle { transform-box: view-box; transform-origin: 105px 112px; transform: rotate(-130deg); transition: transform .08s linear; }
 #hGauge .kmh { position: absolute; left: 0; right: 0; top: 96px; text-align: center; font-size: 40px; }
 #hGauge .gear { position: absolute; left: 0; right: 0; top: 146px; text-align: center; font-size: 24px; color: var(--m-molten-hi); }
-#hBoost { position: absolute; left: 480px; top: 658px; width: 240px; height: 30px; display: flex; gap: 3px; padding: 4px; border-radius: 6px; pointer-events: none;
+#hBoost { position: absolute; left: 9px; top: 326px; width: 240px; height: 30px; display: flex; gap: 3px; padding: 4px; border-radius: 6px; pointer-events: none;
   background: #0d0e12; border: 3px solid #050608; box-shadow: 0 0 0 2px #6b727e; }
 #hBoost i { flex: 1; border-radius: 2px; background: #2a2d34; }
 #hBoost i.on { background: var(--molten); box-shadow: 0 0 6px var(--acc2); }
@@ -267,8 +267,8 @@ svg { display: block; overflow: visible; }
 #hFlash.on { animation: flash .45s ease-out; }
 #hFlash.haz { box-shadow: inset 0 0 120px 30px rgba(242, 183, 5, .8); }
 #hSpeed { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .25s;
-  background: radial-gradient(ellipse 62% 58% at 50% 52%, transparent 60%, rgba(255, 90, 26, .25) 80%, rgba(255, 176, 46, .45)),
-    repeating-conic-gradient(from 0deg at 50% 52%, transparent 0 4deg, rgba(255, 220, 160, .07) 4deg 5deg); }
+  background: radial-gradient(ellipse 60% 56% at 50% 52%, transparent 56%, rgba(255, 90, 26, .38) 78%, rgba(255, 176, 46, .6)),
+    repeating-conic-gradient(from 0deg at 50% 52%, transparent 0 3deg, rgba(255, 228, 170, .16) 3deg 4deg); }
 #hSpeed.on { opacity: 1; }
 #hCrane { position: absolute; left: 520px; top: 0; width: 160px; height: 300px; pointer-events: none; opacity: 0; }
 #hCrane.on { animation: craneDrop 1.6s both; }
@@ -281,7 +281,8 @@ svg { display: block; overflow: visible; }
 #hPause { left: 20px; top: 16px; width: 88px; height: 88px; }
 
 /* ---------- 10. controls ---------- */
-#ctl { position: absolute; inset: 0; pointer-events: none; }
+#ctl { position: absolute; inset: 0; pointer-events: none; transition: opacity .25s; }
+#ctl.dim { opacity: .25; }
 #ctlSteer { position: absolute; left: 0; top: 200px; width: 470px; height: 500px; pointer-events: auto; touch-action: none; }
 #ctlKnob { position: absolute; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; display: none; pointer-events: none;
   background: radial-gradient(circle at 35% 30%, #9aa1ad, #3a3f48 60%, #1a1c21); border: 4px solid #050608; box-shadow: 0 0 0 3px #6b727e, 0 0 24px var(--acc2); }
