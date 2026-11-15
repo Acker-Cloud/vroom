@@ -18,10 +18,11 @@ CONFIG="${CONFIG:-Release}"
 command -v xcodegen >/dev/null || { echo "xcodegen missing: brew install xcodegen"; exit 1; }
 xcodegen generate --quiet
 
+DD="${DERIVED:-/Volumes/silver/xcode/DerivedData/Vroom-cli}"
 LOG=build-device.log
 set +e
 xcodebuild -project Vroom.xcodeproj -scheme Vroom -configuration "$CONFIG" \
-  -destination "generic/platform=iOS" -derivedDataPath build-device \
+  -destination "generic/platform=iOS" -derivedDataPath "$DD" \
   -allowProvisioningUpdates DEVELOPMENT_TEAM="$TEAM" PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE" \
   CODE_SIGN_STYLE=Automatic build >"$LOG" 2>&1
 STATUS=$?
@@ -29,7 +30,7 @@ set -e
 grep -E "sync-web:|error:|warning: .*(sign|provision)|\*\* BUILD" "$LOG" || true
 [ $STATUS -eq 0 ] || { echo "build failed (full log: ios/$LOG)"; exit $STATUS; }
 
-APP="build-device/Build/Products/$CONFIG-iphoneos/Vroom.app"
+APP="$DD/Build/Products/$CONFIG-iphoneos/Vroom.app"
 [ -f "$APP/web/index.html" ] || { echo "web/index.html missing from $APP"; exit 1; }
 
 xcrun devicectl device install app --device "$DEVICE" "$APP"
