@@ -23,7 +23,7 @@ const { check, done, open, visibleLetters, smallTargets } = require('./lib.cjs')
   });
   check('every module publishes its contract API', missing.length === 0, missing.join(' '));
   const ver = await page.evaluate(() => VROOM.contracts.APP_VERSION);
-  check('APP_VERSION is 14.1.0', ver === '14.1.0', ver);
+  check('APP_VERSION is 14.1.1', ver === '14.1.1', ver);
   const metas = await page.evaluate(() => ({ vp: (document.querySelector('meta[name=viewport]') || {}).content || '', app: !!document.querySelector('meta[name=apple-mobile-web-app-capable]'), man: !!document.querySelector('link[rel=manifest]') }));
   check('iPad shell: no-zoom viewport, home-screen app metas, manifest (v12 feel-check)', /user-scalable=no/.test(metas.vp) && /viewport-fit=cover/.test(metas.vp) && metas.app && metas.man, JSON.stringify(metas));
 

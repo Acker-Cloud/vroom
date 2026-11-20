@@ -110,7 +110,7 @@ fuel and tread (12.2), race number (12.3), tank and springs pips (12.7), and in 
 bosses beaten. Every tail read is guarded by `pos + n <= bytes.length * 8`, so shorter older codes simply
 stop. Formats 1 and 2 still decode. `VROOM2.` (gzip JSON) and `VROOM3.` (plain) full codes carry the
 whole save minus replays and ghosts. The QR is a hand-rolled encoder (byte mode, ECC L, versions 1 to 10)
-that carries `https://zacker3310.github.io/vroom/#save=<code>`; `save-check` scans it with jsQR.
+that carries `https://acker-cloud.github.io/vroom/#save=<code>`; `save-check` scans it with jsQR.
 
 ## The update gate
 

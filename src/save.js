@@ -601,7 +601,7 @@ function qrEncode(text) {
 }
 /* the QR carries the full hosted URL, so a camera opens the game with the save ready to import;
    falls back to the bare code if ever too big. -> boolean[][] (true = dark) or null */
-const SAVE_URL_PREFIX = 'https://zacker3310.github.io/vroom/#save=';
+const SAVE_URL_PREFIX = 'https://acker-cloud.github.io/vroom/#save=';
 function qrMatrix() {
   const code = packCompact();
   return qrEncode(SAVE_URL_PREFIX + code) || qrEncode(code);

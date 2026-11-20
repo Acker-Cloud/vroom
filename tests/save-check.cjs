@@ -238,6 +238,7 @@ const sameSet = (a, b) => same([...(a || [])].sort(), [...(b || [])].sort());
     for (let r = 0; r < M.length; r++) for (let c = 0; c < M.length; c++) if (M[r][c]) for (let y = 0; y < q; y++) for (let x = 0; x < q; x++) { const i = (((r + 4) * q + y) * size + (c + 4) * q + x) * 4; img[i] = img[i + 1] = img[i + 2] = 0; }
     const got = jsQR ? jsQR(img, size, size) : null;
     check('the save QR scans (jsQR) to the hosted URL carrying this save code', !!got && got.data === Z.SAVE_URL_PREFIX + Z.packCompact(), got ? got.data.slice(0, 60) : 'no decode');
+    check('the hosted URL is the Pages site, acker-cloud.github.io/vroom', Z.SAVE_URL_PREFIX === 'https://acker-cloud.github.io/vroom/#save=', Z.SAVE_URL_PREFIX);
   }
   done();
 })().catch(e => { console.error(e); process.exit(1); });

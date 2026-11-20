@@ -19,7 +19,7 @@
    Track space: s metres along the centreline, d metres to the DRIVER'S RIGHT (r = cross(t, u)), h metres
    above the surface along u. A turn with angle > 0 turns to the driver's right. */
 
-const APP_VERSION = '14.1.0';
+const APP_VERSION = '14.1.1';
 
 /* ---------- sim timing ---------- */
 const SIM_HZ = 120;

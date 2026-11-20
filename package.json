@@ -1,13 +1,13 @@
 {
   "name": "vroom",
-  "version": "14.1.0",
+  "version": "14.1.1",
   "private": true,
   "description": "VROOM: a late-90s console style metal grunge 3D racer. Monster machines, twelve loud worlds, 120 tracks, real vehicle physics. One HTML file, no reading, works offline.",
-  "homepage": "https://zacker3310.github.io/vroom/",
+  "homepage": "https://acker-cloud.github.io/vroom/",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/zacker3310/vroom.git"
+    "url": "git+https://github.com/Acker-Cloud/vroom.git"
   },
   "engines": {
     "node": ">=20"

@@ -11,14 +11,14 @@
 </p>
 
 <p align="center">
-  <a href="https://zacker3310.github.io/vroom/"><strong>Play it: zacker3310.github.io/vroom</strong></a>
+  <a href="https://acker-cloud.github.io/vroom/"><strong>Play it: acker-cloud.github.io/vroom</strong></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/zacker3310/vroom/actions/workflows/test.yml"><img src="https://github.com/zacker3310/vroom/actions/workflows/test.yml/badge.svg" alt="tests"></a>
+  <a href="https://github.com/Acker-Cloud/vroom/actions/workflows/test.yml"><img src="https://github.com/Acker-Cloud/vroom/actions/workflows/test.yml/badge.svg" alt="tests"></a>
   <img src="https://img.shields.io/badge/engine-three.js%20r170-555b66" alt="three.js r170">
   <img src="https://img.shields.io/badge/one%20file-index.html-f2b705" alt="one file">
-  <img src="https://img.shields.io/badge/version-14.1.0-ff5a1a" alt="version 14.1.0">
+  <img src="https://img.shields.io/badge/version-14.1.1-ff5a1a" alt="version 14.1.1">
 </p>
 
 ![Home: the chrome VROOM logo over the Magma Forge diorama, a six-wheel war rig idling on a hazard podium](docs/home.png)
@@ -71,7 +71,7 @@
 ## For grown-ups
 
 - **Profiles.** Three players, each a face, each with their own save.
-- **Save codes and QR.** The profile panel shows a scan-to-open QR and copy / paste plates for the full code; `https://zacker3310.github.io/vroom/#save=<code>` imports one after a wordless confirm. Codes from v12 still work.
+- **Save codes and QR.** The profile panel shows a scan-to-open QR and copy / paste plates for the full code; `https://acker-cloud.github.io/vroom/#save=<code>` imports one after a wordless confirm. Codes from v12 still work.
 - **Sound.** Settings holds quiet mode, the optional CRT scanlines, the steering mode and three sensitivities.
 - **Home screen.** From Safari, Share, Add to Home Screen: full-screen landscape, offline. There is also a native iOS shell in `ios/`.
 - **Updates.** When a new version is live a green hazard plate with a refresh ring appears on home, under the avatar. Press and hold until the ring fills and the game reloads into it; progress is kept.
@@ -100,13 +100,13 @@ the v13 design.
 ## Development
 
 ```bash
-git clone https://github.com/zacker3310/vroom.git
+git clone https://github.com/Acker-Cloud/vroom.git
 cd vroom
 npm ci                                   # three, eslint, playwright-core, jsqr (build and test only)
 npx playwright-core install chromium     # or: export CHROMIUM=/path/to/chrome
 npm run build                            # src/ -> index.html
 python3 -m http.server 4173              # then open http://localhost:4173/ (append ?garage, ?level=N, ?world=N)
-npm test                                 # 16 suites, 467 checks
+npm test                                 # 16 suites, 468 checks
 node tests/lint.cjs                      # 0 findings
 node scripts/doc-shots.cjs               # regenerate the screenshots in docs/
 ```
